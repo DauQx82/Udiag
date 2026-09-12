@@ -1,24 +1,3 @@
-"""
-	For creating or editing mode
-"""
-
-"""
-file
- ├── name
- ├── scope
- ├── description
- ├── arguments
- └── operations
-      ├── id
-      ├── title
-      ├── mode
-      ├── program
-      ├── command
-      └── expected
-           ├── type
-           └── value
-"""
-
 import json
 from pathlib import Path
 
@@ -76,7 +55,7 @@ def prepare_modes() -> tuple[list[dict], list[str]]:
 			else:
 				err_list.append(f"Mode: {mode} has invalid structure")
 		else:
-			message: str = f"Mode: {mode} JSONDecodeError return Err" + "\n" + f"Check your {mode}"
+			message: str = f"Mode: {mode} JSONDecodeError return Err" + "\n" + f"Check your {mode.name}"
 			err_list.append(message)
 
 	return loaded_json, err_list

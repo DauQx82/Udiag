@@ -6,7 +6,7 @@ import pydoc # Na później
 # Trzeba dodać argumenty... 
 # TODO Zastanowić się aby przenieść wynik do programu typu less, albo coś w tym stylu
 # TODO Tui raczej jako konfiguracja, ewentualnie coś w tym stylu
-
+# TODO Dokończyć aktualizację i przejść dalej.
 def test() -> None:
 	env_with_colors = os.environ.copy()
 	env_with_colors["SYSTEMD_COLORS"] = "1"
@@ -30,6 +30,8 @@ parser.add_argument('--base', action='store_true', help='Basic Diagnostic')
 parser.add_argument('--pkg', action='store_true', help='Package Consistency')
 # Updates 
 parser.add_argument('--check-updates', action='store_true', help='Updates and Upgrades Diagnostic')
+# Test interpreter.
+parser.add_argument('--testai', action='store_true', help='Test for interpreter not really AI Agent.')
 args = parser.parse_args()
 
 base_diag_list: list[str] = [
@@ -50,7 +52,39 @@ check_update_base_diag_list: list[str] = [
 	"apt-get -s upgrade",
 
 ]
+###################################################################################
+interpreter_list: list[str] = [
+	"dpkg --audit",
+	"apt-mark showhold",
+	"test -f /var/run/reboot-required  && cat /var/run/reboot-required"
+]
+def interpreter_diagnostic(cmd_list: list[str]) -> None:
+	"""Testowa funkcja interpretera, zwraca ok, jeżeli nic nie zwróciło."""
+	for i, process in enumerate(cmd_list, start=1):
 
+		result = subprocess.run(process, shell=True, capture_output=True, text=True)
+
+		if result.stdout == "":
+			print("OK")
+		else:
+			print(result.stdout)
+
+process_dict = {
+	"Package Audit: ": "dpkg --audit",
+	"Show held packages": "apt-mark showhold",
+	"Need reboot:": "test -f /var/run/reboot-required  && cat /var/run/reboot-required"
+}
+def inter_diag_dict(cmd_dict: dict[str, str]) -> None:
+	for i, (name_process, process) in enumerate(cmd_dict.items(), start=1):
+		result = subprocess.run(process, shell=True, capture_output=True, text=True)
+
+		print(f"=== {i}. {name_process} ===")
+		if result.stdout.strip() == "":
+			print("No actions need")
+		else:
+			print(result.stdout)
+# Koniec bloku testowego.
+####################################################################
 def base_diagnostic(cmd_list: list[str]) -> None:
 	"""Basic diagnostic system result loop"""
 	for i, process in enumerate(cmd_list, start=1):
@@ -66,6 +100,7 @@ def open_config_file() -> None:
 
 def appinfo() -> None:
 	parser.print_help()
+
 if __name__ == "__main__":
 	if len(sys.argv) == 1:
 		appinfo()
@@ -78,4 +113,7 @@ if __name__ == "__main__":
 	if args.check_updates:
 		base_diagnostic(check_update_base_diag_list)
 
+	if args.testai:
+		interpreter_diagnostic(interpreter_list)
+		inter_diag_dict(process_dict)
 

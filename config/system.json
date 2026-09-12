@@ -1,0 +1,78 @@
+
+{
+	"name": "system",
+	"scope": "system",
+	"description": "Basic GNU/Linux system diagnostic",
+
+	"arguments": [
+		"--base",
+		"--system"
+	],
+
+	"operations": [
+		{
+			"id": "hostname",
+			"title": "System information",
+			"mode": "output",
+			"program": "hostnamectl",
+			"command": "hostnamectl",
+
+			"expected": {
+				"type": "information",
+				"value": null
+			}
+		},
+
+		{
+			"id": "kernel",
+			"title": "Kernel information",
+			"mode": "output",
+			"program": "uname",
+			"command": "uname -a",
+
+			"expected": {
+				"type": "information",
+				"value": null
+			}
+		},
+
+		{
+			"id": "system-state",
+			"title": "System state",
+			"mode": "interpreter",
+			"program": "systemctl",
+			"command": "systemctl is-system-running",
+
+			"expected": {
+				"type": "equals",
+				"value": "running"
+			}
+		},
+
+		{
+			"id": "failed-services",
+			"title": "Failed system services",
+			"mode": "interpreter",
+			"program": "systemctl",
+			"command": "systemctl --failed --no-pager",
+
+			"expected": {
+				"type": "contains",
+				"value": "0 loaded units listed"
+			}
+		},
+
+		{
+			"id": "package-audit",
+			"title": "Package audit",
+			"mode": "interpreter",
+			"program": "dpkg",
+			"command": "dpkg --audit",
+
+			"expected": {
+				"type": "empty",
+				"value": null
+			}
+		}
+	]
+}

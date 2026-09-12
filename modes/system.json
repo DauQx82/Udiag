@@ -5,8 +5,8 @@
 	"description": "Basic GNU/Linux system diagnostic",
 
 	"arguments": [
-		"--base",
-		"--system"
+		"--system",
+		"-s"
 	],
 
 	"operations": [

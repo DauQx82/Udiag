@@ -53,6 +53,7 @@ check_update_base_diag_list: list[str] = [
 
 ]
 ###################################################################################
+# Blok testowy, teraz na liscie 
 interpreter_list: list[str] = [
 	"dpkg --audit",
 	"apt-mark showhold",
@@ -68,7 +69,7 @@ def interpreter_diagnostic(cmd_list: list[str]) -> None:
 			print("OK")
 		else:
 			print(result.stdout)
-
+# Teraz troszkę inne podejśćie
 process_dict = {
 	"Package Audit: ": "dpkg --audit",
 	"Show held packages": "apt-mark showhold",

@@ -1,0 +1,24 @@
+{
+	"name": "base",
+	"description": "Basic system diagnostic",
+
+	"arguments": [
+		"--base",
+		"-b"
+	],
+
+	"operations": [
+		{
+			"id": "system-state",
+			"title": "System state",
+			"mode": "interpreter",
+			"program": "systemctl",
+			"command": "systemctl is-system-running",
+
+			"expected": {
+				"type": "equals",
+				"value": "running"
+			}
+		}
+	]
+}

@@ -1,6 +1,7 @@
 # udiag
 
-Small personal Ubuntu [GNU/Linux]  diagnostic tool written in Python.
+Personal Ubuntu diagnostic tool written in Python,
+with possible future support for other GNU/Linux distributions.
 
 ## Goal
 

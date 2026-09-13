@@ -1,23 +1,11 @@
 import json
 from pathlib import Path
-from typing import TypedDict, NotRequired
+
+from structure import ModeDict, OperationDict
 
 BASE_DIR = Path(__file__).resolve().parent
 MODE_DIR = BASE_DIR / "modes"
 
-class OperationDict(TypedDict):
-	title: str
-	program: str
-	command: str
-	handler: str
-	presentation: str
-	expected: NotRequired[str]
-
-class ModeDict(TypedDict):
-	name: str
-	description: str
-	aliases: list[str]
-	operations: list[OperationDict]
 
 def scan_config() -> list[Path]:
 	"""Scans path for modes. Returns Path obj."""

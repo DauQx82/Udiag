@@ -2,119 +2,104 @@ import os
 import subprocess
 import argparse
 import sys
-import pydoc # Na później 
-# Trzeba dodać argumenty... 
-# TODO Zastanowić się aby przenieść wynik do programu typu less, albo coś w tym stylu
-# TODO Tui raczej jako konfiguracja, ewentualnie coś w tym stylu
-# TODO Dokończyć aktualizację i przejść dalej.
-def test() -> None:
-	env_with_colors = os.environ.copy()
-	env_with_colors["SYSTEMD_COLORS"] = "1"
 
-	sub_list: list[str] = ["hostnamectl"]
-	for i, process in enumerate(sub_list):
-		result = subprocess.run([process], capture_output=True, text=True, env=env_with_colors)
+from mode_manager import prepare_modes
+from structure import ModeDict, Operation, create_operation
 
-		print(f"{1}. {process}")
-		print(result.stdout)
+from terminal import present_terminal, terminal_title
 
-		if result.stderr:
-			print(f"Error: {result.stderr}")
+env_with_colors = os.environ.copy()
+env_with_colors["SYSTEMD_COLORS"] = "1"
 
-#####################################################################
+def prepare_args(mode: ModeDict) -> list[str]:
+	"""Prepares a list of arguments for each specific mode."""
+	args_list: list[str] = []
 
-parser = argparse.ArgumentParser(description="Basic Diagnostic Systemm with args.")
-# Basic diagnostic, informations.
-parser.add_argument('--base', action='store_true', help='Basic Diagnostic')
-# Package consistency
-parser.add_argument('--pkg', action='store_true', help='Package Consistency')
-# Updates 
-parser.add_argument('--check-updates', action='store_true', help='Updates and Upgrades Diagnostic')
-# Test interpreter.
-parser.add_argument('--testai', action='store_true', help='Test for interpreter not really AI Agent.')
-args = parser.parse_args()
+	args_list.extend(f"-{alias}" for alias in mode['aliases'])
+	args_list.append(f"--{mode['name']}")
 
-base_diag_list: list[str] = [
-	"hostnamectl",
-	"uname -a",
-	"df -h",
-	"systemctl is-system-running",
-	"systemctl --failed --no-pager",
-	"systemctl --user --failed --no-pager"
-]
-pkg_base_diag_list: list[str] = [
-	"dpkg --audit",
-	"apt-mark showhold"
-]
-check_update_base_diag_list: list[str] = [
-	"sudo apt update",
-	"apt list --upgradable 2>/dev/null",
-	"apt-get -s upgrade",
+	return args_list
 
-]
-###################################################################################
-# Blok testowy, teraz na liscie 
-interpreter_list: list[str] = [
-	"dpkg --audit",
-	"apt-mark showhold",
-	"test -f /var/run/reboot-required  && cat /var/run/reboot-required"
-]
-def interpreter_diagnostic(cmd_list: list[str]) -> None:
-	"""Testowa funkcja interpretera, zwraca ok, jeżeli nic nie zwróciło."""
-	for i, process in enumerate(cmd_list, start=1):
+def build_parser(correct_modes: list[ModeDict]) -> argparse.ArgumentParser:
+	parser = argparse.ArgumentParser(
+		description="Udiag - Diagnostic system with JSON"
+	)
 
-		result = subprocess.run(process, shell=True, capture_output=True, text=True)
+	parser.add_argument(
+		"-e",
+		"--errors",
+		dest="mode_errors",
+		action="store_true",
+		help="Check modes errors"
+	)
 
-		if result.stdout == "":
-			print("OK")
-		else:
-			print(result.stdout)
-# Teraz troszkę inne podejśćie
-process_dict = {
-	"Package Audit: ": "dpkg --audit",
-	"Show held packages": "apt-mark showhold",
-	"Need reboot:": "test -f /var/run/reboot-required  && cat /var/run/reboot-required"
-}
-def inter_diag_dict(cmd_dict: dict[str, str]) -> None:
-	for i, (name_process, process) in enumerate(cmd_dict.items(), start=1):
-		result = subprocess.run(process, shell=True, capture_output=True, text=True)
+	for mode in correct_modes:
+		parser.add_argument(
+			*prepare_args(mode),
+			dest=mode["name"],
+			action="store_true",
+			help=mode["description"]
+		)
 
-		print(f"=== {i}. {name_process} ===")
-		if result.stdout.strip() == "":
-			print("No actions need")
-		else:
-			print(result.stdout)
-# Koniec bloku testowego.
-####################################################################
-def base_diagnostic(cmd_list: list[str]) -> None:
-	"""Basic diagnostic system result loop"""
-	for i, process in enumerate(cmd_list, start=1):
-		print(f"\n\033[1;32m=== {i}. {process} ===\033[0m")
+	return parser
 
-		subprocess.run(process, shell=True)
+def warning(errors: list[str]) -> None:
+	if errors:
+		print()
+		print(f"{len(errors)} : Modes are not available")
+		print("For details, run udiag.py -e, --errors" + "\n")
 
-		print("\n" + "#"*40)
+def warning_details(errors: list[str]) -> None:
+	if errors:
+		print(f"{len(errors)} : Modes are not available")
+		print("Details:" + "\n")
 
-def open_config_file() -> None:
-	"""Future, after test."""
-	...
+		for i, error in enumerate(errors, start=1):
+			print(f"{i}. {error}" + "\n")
 
-def appinfo() -> None:
-	parser.print_help()
+		return
+
+	print("No errors.")
+
+def execute(operation: Operation) -> None:
+	result = subprocess.run(operation.command,
+							shell=True,
+							capture_output=True,
+							text=True,
+							env=env_with_colors)
+
+	operation.stdout = result.stdout
+	operation.stderr = result.stderr
+	operation.returncode = result.returncode
+
+def main(args, correct_modes: list[ModeDict], errors: list[str]) -> None:
+	for mode in correct_modes:
+		if getattr(args, mode["name"]):
+			warning(errors)
+			print()
+
+			terminal_title(mode)
+			
+			for i, instruction in enumerate(mode["operations"], start=1):
+				operation = create_operation(instruction)
+				
+				execute(operation)
+
+				present_terminal(i, instruction, operation)
+			
+			print("# End.")
 
 if __name__ == "__main__":
+	correct_modes, errors = prepare_modes()
+
+	parser = build_parser(correct_modes)
+	args = parser.parse_args()
+
 	if len(sys.argv) == 1:
-		appinfo()
-		sys.exit()
+		warning(errors)
+		parser.print_help()
 
-	if args.base:
-		base_diagnostic(base_diag_list)
-	if args.pkg:
-		base_diagnostic(pkg_base_diag_list)
-	if args.check_updates:
-		base_diagnostic(check_update_base_diag_list)
+	if args.mode_errors:
+		warning_details(errors)
 
-	if args.testai:
-		interpreter_diagnostic(interpreter_list)
-		inter_diag_dict(process_dict)
-
+	main(args, correct_modes, errors)

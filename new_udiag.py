@@ -4,16 +4,14 @@ import argparse
 import sys
 from dataclasses import dataclass
 
-from mode_manager import prepare_modes
+from mode_manager import prepare_modes, ModeDict
 
 env_with_colors = os.environ.copy()
 env_with_colors["SYSTEMD_COLORS"] = "1"
 
 @dataclass
 class Operation:
-	id: str
 	title: str
-	mode: str
 	program: str
 	command: str
 
@@ -21,11 +19,19 @@ class Operation:
 	stderr: str = ""
 	returncode: int | None = None
 
+def prepare_args(mode: ModeDict) -> list[str]:
+	"""Prepares a list of arguments for each specific mode."""
+	args_list: list[str] = []
+
+	args_list.append(f"--{mode['name']}")
+	args_list.extend(f"-{alias}" for alias in mode['aliases'])
+	return args_list
+
 def warning(errors: list[str]) -> None:
 	if errors:
 		print()
 		print(f"{len(errors)} : Modes are not available")
-		print("For details, run new_udiag.py --errors, -e")
+		print("For details, run new_udiag.py --errors, -e" + "\n")
 		# FIXME new_udiag -> udiag, when migration time
 
 def warning_details(errors: list[str]) -> None:
@@ -35,15 +41,14 @@ def warning_details(errors: list[str]) -> None:
 
 		for i, error in enumerate(errors, start=1):
 			print(f"{i}. {error}" + "\n")
+			
 		return
 
 	print("No errors.")
 
 def create_operation(instruction: dict) -> Operation:
 	operation = Operation(
-	instruction["id"],
 	instruction["title"],
-	instruction["mode"],
 	instruction["program"],
 	instruction["command"]
 	)
@@ -60,7 +65,7 @@ def execute(operation: Operation) -> None:
 	operation.stderr = result.stderr
 	operation.returncode = result.returncode
 
-def main(args, correct_modes: list[dict], errors: list[str]) -> None:
+def main(args, correct_modes: list[ModeDict], errors: list[str]) -> None:
 	for mode in correct_modes:
 		if getattr(args, mode["name"]):
 			warning(errors)
@@ -80,7 +85,6 @@ def main(args, correct_modes: list[dict], errors: list[str]) -> None:
 				print(operation.returncode)
 				print()
 
-
 # Parser init
 parser = argparse.ArgumentParser(description="Udiag - Diagnostic system with JSON")
 
@@ -89,7 +93,7 @@ parser.add_argument("--errors", "-e", dest="mode_errors", action="store_true", h
 correct_modes, errors = prepare_modes()
 for mode in correct_modes:
 	parser.add_argument(
-		*mode["arguments"],
+		*prepare_args(mode),
 		dest=mode["name"],
 		action="store_true",
 		help=mode["description"]

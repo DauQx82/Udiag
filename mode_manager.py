@@ -1,15 +1,22 @@
 import json
 from pathlib import Path
+from typing import TypedDict
 
 BASE_DIR = Path(__file__).resolve().parent
 MODE_DIR = BASE_DIR / "modes"
+
+class ModeDict(TypedDict):
+	name:str
+	description:str
+	aliases: list[str]
+	operations: list[dict]
 
 def scan_config() -> list[Path]:
 	"""Scans path for modes. Returns Path obj."""
 	return list(MODE_DIR.glob("*.json"))
 
-def load_mode(file: Path) -> dict:
-	"""Loading configuration details. Returns dict [json]"""
+def load_mode(file: Path) -> ModeDict:
+	"""Loading configuration details. Returns dict[ModeDict]"""
 	with file.open("r", encoding="utf-8") as f:
 		return json.load(f)
 
@@ -22,13 +29,13 @@ def validate_json(file: Path) -> bool:
 	
 	return True
 
-def validate_mode_structure(mode: dict[str, object]) -> bool:
+def validate_mode_structure(mode: ModeDict) -> bool:
 	"""Checks whether the dictionary contains the required diagnostic keys and whether their values ​​have the correct types."""
 
 	expected_structure:dict = {
 		"name": str,
+		"aliases": list,
 		"description": str,
-		"arguments": list, # list of str
 		"operations": list # list of dict
 	}
 
@@ -41,10 +48,10 @@ def validate_mode_structure(mode: dict[str, object]) -> bool:
 
 	return True
 
-def prepare_modes() -> tuple[list[dict], list[str]]:
+def prepare_modes() -> tuple[list[ModeDict], list[str]]:
 	"""Checks the structure of the JSON file."""
 	modes = scan_config()
-	loaded_json:list[dict] = []
+	loaded_json:list[ModeDict] = []
 	err_list:list[str] = []
 
 	for mode in modes:

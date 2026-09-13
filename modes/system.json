@@ -1,13 +1,8 @@
 
 {
 	"name": "system",
-	"scope": "system",
 	"description": "Basic GNU/Linux system diagnostic",
-
-	"arguments": [
-		"--system",
-		"-s"
-	],
+	"aliases": ["s"],
 
 	"operations": [
 		{

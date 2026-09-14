@@ -47,7 +47,7 @@ def validate_operation_structure(operation: OperationDict) -> bool:
 	expected_structure: dict[str, type] = {
 		"title": str,
 		"program": str,
-		"command": str,
+		"args": list,
 		"handler": str,
 		"presentation": str,
 	}
@@ -67,6 +67,9 @@ def validate_operation_structure(operation: OperationDict) -> bool:
 
 		if not isinstance(operation["expected"], str):
 			return False
+		
+	if not all(isinstance(arg, str) for arg in operation["args"]):
+		return False
 
 	return True
 

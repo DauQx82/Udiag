@@ -8,7 +8,7 @@
 		{
 			"title": "System information",
 			"program": "hostnamectl",
-			"command": "hostnamectl",
+			"args": [],
 			
 			"handler": "information",
 
@@ -18,7 +18,7 @@
 		{
 			"title": "Kernel information",
 			"program": "uname",
-			"command": "uname -a",
+			"args": ["-a"],
 
 			"handler": "information",
 
@@ -28,7 +28,7 @@
 		{
 			"title": "System state",
 			"program": "systemctl",
-			"command": "systemctl is-system-running",
+			"args": ["is-system-running"],
 
 			"handler": "equals",
 			"expected": "running",
@@ -39,7 +39,7 @@
 		{
 			"title": "Failed system services",
 			"program": "systemctl",
-			"command": "systemctl --failed --no-pager",
+			"args": ["--failed", "--no-pager"],
 
 			"handler": "equals",
 			"expected": "0 loaded units listed",
@@ -50,7 +50,7 @@
 		{
 			"title": "Package audit",
 			"program": "dpkg",
-			"command": "dpkg --audit",
+			"args": ["--audit"],
 
 			"handler": "empty",
 

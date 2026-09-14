@@ -4,7 +4,7 @@ from dataclasses import dataclass
 class OperationDict(TypedDict):
 	title: str
 	program: str
-	command: str
+	args: list[str]
 	handler: str
 	presentation: str
 	expected: NotRequired[str]
@@ -19,7 +19,7 @@ class ModeDict(TypedDict):
 class Operation:
 	title: str
 	program: str
-	command: str
+	args: list[str]
 
 	stdout: str = ""
 	stderr: str = ""
@@ -29,6 +29,6 @@ def create_operation(instruction: OperationDict) -> Operation:
 	operation = Operation(
 	instruction["title"],
 	instruction["program"],
-	instruction["command"]
+	instruction["args"]
 	)
 	return operation

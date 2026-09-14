@@ -14,7 +14,7 @@ def present_terminal(i: int,
 	"""Preparing a report""" # TODO Full docstring.
 
 	print(f"	[{i}] {instruction['title']}\n")
-	print(f"Command: {instruction['command']}\n")
+	print(f"args: {instruction['args']}\n")
 
 	print(f"{operation.stdout}")
 	print(f"Returncode: {operation.returncode}")

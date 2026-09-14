@@ -7,7 +7,7 @@
 		{
 			"title": "System state",
 			"program": "systemctl",
-			"command": "systemctl is-system-running",
+			"args": ["is-system-running"],
 
 			"handler": "equals",
 			"expected": "running",

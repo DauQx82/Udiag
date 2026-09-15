@@ -29,7 +29,6 @@ def validate_mode_structure(mode: ModeDict) -> bool:
 	"""Checks whether the dictionary contains the required diagnostic keys and whether their values ​​have the correct types."""
 	expected_structure: dict[str, type] = {
 		"name": str,
-		"aliases": list,
 		"description": str,
 		"operations": list # list of OperationDict
 	}
@@ -49,7 +48,6 @@ def validate_operation_structure(operation: OperationDict) -> bool:
 		"program": str,
 		"args": list,
 		"handler": str,
-		"presentation": str,
 	}
 
 	handlers_with_expected: set[str] = {"equals", "contains"}

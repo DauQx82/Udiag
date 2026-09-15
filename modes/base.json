@@ -1,7 +1,6 @@
 {
 	"name": "base",
 	"description": "Basic system diagnostic",
-	"aliases": ["b"],
 
 	"operations": [
 		{
@@ -10,9 +9,7 @@
 			"args": ["is-system-running"],
 
 			"handler": "equals",
-			"expected": "running",
-			
-			"presentation": "terminal"
+			"expected": "running"
 		}
 	]
 }

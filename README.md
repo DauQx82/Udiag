@@ -22,7 +22,7 @@ The Python code currently uses only the standard library. The bundled modes use
 - `mode_manager.py` — mode discovery, JSON loading, and structural validation
 - `structure.py` — typed mode/operation structures and the runtime `Operation`
   model
-- `terminal.py` — terminal report presentation
+- `terminal.py` — terminal report output presentation
 - `modes/base.json` — basic system-state diagnostic
 - `modes/system.json` — extended system and package diagnostic
 
@@ -81,9 +81,6 @@ is shown or run.
 - `system` — displays system and kernel information, checks system state and
   failed services, and runs a package audit
 
-Mode aliases remain present in the JSON structure, but the current CLI accepts
-full mode names only. User-defined aliases may be added in a future version.
-
 ## JSON mode format
 
 A mode contains its metadata and an ordered list of operations:
@@ -92,7 +89,6 @@ A mode contains its metadata and an ordered list of operations:
 {
   "name": "base",
   "description": "Basic system diagnostic",
-  "aliases": [],
   "operations": [
     {
       "title": "System state",
@@ -100,7 +96,6 @@ A mode contains its metadata and an ordered list of operations:
       "args": ["is-system-running"],
       "handler": "equals",
       "expected": "running",
-      "presentation": "terminal"
     }
   ]
 }
@@ -113,7 +108,6 @@ Current operation fields:
 - `args` — list of arguments passed to the executable
 - `handler` — intended result interpreter
 - `expected` — required for the `equals` and `contains` handlers
-- `presentation` — intended output presentation method
 
 Commands are started as an argument list with `shell=False`; the JSON does not
 contain a shell command string.
@@ -131,13 +125,12 @@ The current version:
 
 This is still an early prototype. In particular:
 
-- `handler`, `expected`, and `presentation` are validated as metadata but are
-  not yet used to interpret or select the presentation of results
+- `handler` and `expected` are validated as metadata but are
+  not yet used to interpret 
 - terminal output is raw; there is no success/warning/failure interpretation
 - standard error is captured but is not currently printed
 - subprocess startup errors are not handled and operations have no timeout
-- semantic validation is still limited and does not yet restrict handler and
-  presentation values to a supported set
+- semantic validation is still limited and does not yet restrict handler
 - reports are not sanitized and include the local username and device hostname
 
 ## Security
@@ -151,7 +144,7 @@ and output sanitization are planned but are not implemented yet.
 
 - connect handlers and expected values to result interpretation
 - show clear operation statuses
-- validate supported handler and presentation values more strictly
+- validate supported handler
 - handle missing executables, timeouts, and standard error cleanly
 - add risk levels and confirmation for system-changing operations
 - sanitize reports before they are shared

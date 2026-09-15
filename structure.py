@@ -6,13 +6,11 @@ class OperationDict(TypedDict):
 	program: str
 	args: list[str]
 	handler: str
-	presentation: str
 	expected: NotRequired[str]
 
 class ModeDict(TypedDict):
 	name: str
 	description: str
-	aliases: list[str]
 	operations: list[OperationDict]
 
 @dataclass

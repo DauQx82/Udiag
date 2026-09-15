@@ -2,7 +2,6 @@
 {
 	"name": "system",
 	"description": "Advance system diagnostic",
-	"aliases": ["s"],
 
 	"operations": [
 		{
@@ -10,9 +9,7 @@
 			"program": "hostnamectl",
 			"args": [],
 			
-			"handler": "information",
-
-			"presentation": "terminal"
+			"handler": "information"
 		},
 
 		{
@@ -20,9 +17,7 @@
 			"program": "uname",
 			"args": ["-a"],
 
-			"handler": "information",
-
-			"presentation": "terminal"
+			"handler": "information"
 		},
 
 		{
@@ -31,9 +26,7 @@
 			"args": ["is-system-running"],
 
 			"handler": "equals",
-			"expected": "running",
-
-			"presentation": "terminal"
+			"expected": "running"
 		},
 
 		{
@@ -42,9 +35,7 @@
 			"args": ["--failed", "--no-pager"],
 
 			"handler": "equals",
-			"expected": "0 loaded units listed",
-
-			"presentation": "terminal"
+			"expected": "0 loaded units listed"
 		},
 
 		{
@@ -52,9 +43,7 @@
 			"program": "dpkg",
 			"args": ["--audit"],
 
-			"handler": "empty",
-
-			"presentation": "terminal"
+			"handler": "empty"
 		}
 	]
 }

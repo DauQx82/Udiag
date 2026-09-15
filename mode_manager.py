@@ -40,6 +40,9 @@ def validate_mode_structure(mode: ModeDict) -> bool:
 		if not isinstance(mode[key], expected_type):
 			return False
 
+	if not all(isinstance(operation, dict) for operation in mode["operations"]):
+		return False
+
 	return True
 
 def validate_operation_structure(operation: OperationDict) -> bool:

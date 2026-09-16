@@ -1,3 +1,6 @@
+# Copyright (C) 2026 DauQx82
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 from abc import ABC, abstractmethod
 from structure import OperationResult, HandlerResult
 

@@ -160,3 +160,11 @@ and output sanitization are planned but are not implemented yet.
 - sanitize reports before they are shared
 - support optional aliases configured by the user
 
+## License
+
+Copyright © 2026 DauQx82
+
+Udiag is licensed under the GNU General Public License
+version 3 or later (`GPL-3.0-or-later`).
+
+See [LICENSE](LICENSE) for the full license text.

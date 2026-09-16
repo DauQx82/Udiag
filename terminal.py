@@ -4,18 +4,18 @@ from datetime import datetime
 from structure import ModeDict, OperationDict, Operation
 
 def terminal_title(mode: ModeDict) -> None:
-	print(f"=== {mode["description"]} ===")
-	print(f"# Runtime: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
-	print(f"# User: {getuser()} | Device: {gethostname()}")
+    print(f"=== {mode["description"]} ===")
+    print(f"# Runtime: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}")
+    print(f"# User: {getuser()} | Device: {gethostname()}")
 
 def present_terminal(i: int,
-					 instruction: OperationDict,
-					 operation: Operation) -> None:
-	"""Preparing a report""" # TODO Full docstring.
+                     instruction: OperationDict,
+                     operation: Operation) -> None:
+    """Preparing a report""" # TODO Full docstring.
 
-	print(f"	[{i}] {instruction['title']}\n")
-	print(f"args: {instruction['args']}\n")
+    print(f"	[{i}] {instruction['title']}\n")
+    print(f"args: {instruction['args']}\n")
 
-	print(f"{operation.stdout}")
-	print(f"Returncode: {operation.returncode}")
-	print()
+    print(f"{operation.stdout}")
+    print(f"Returncode: {operation.returncode}")
+    print()

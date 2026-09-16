@@ -95,7 +95,7 @@ A mode contains its metadata and an ordered list of operations:
       "program": "systemctl",
       "args": ["is-system-running"],
       "handler": "equals",
-      "expected": "running",
+      "expected": "running"
     }
   ]
 }

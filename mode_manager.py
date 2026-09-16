@@ -15,15 +15,6 @@ def load_mode(file: Path) -> ModeDict:
     with file.open("r", encoding="utf-8") as f:
         return json.load(f)
 
-def validate_json(file: Path) -> bool:
-    """Return true if json has no errors"""
-    try:
-        load_mode(file)
-    except json.JSONDecodeError:
-        return False
-    
-    return True
-
 def validate_mode_structure(mode_file: ModeDict) -> bool:
     """Checks whether the dictionary contains the required diagnostic keys and whether their values ​​have the correct types."""
     expected_structure: dict[str, type] = {
@@ -45,6 +36,7 @@ def validate_mode_structure(mode_file: ModeDict) -> bool:
     return True
 
 def validate_operation_structure(operation: OperationDict) -> bool:
+    """Checks the operation structure."""
     expected_structure: dict[str, type] = {
         "title": str,
         "program": str,
@@ -73,22 +65,21 @@ def validate_operation_structure(operation: OperationDict) -> bool:
 
     return True
 
-def prepare_modes() -> tuple[list[ModeDict], list[str]]:
+def prepare_modes(mode_files: list[Path]) -> tuple[list[ModeDict], list[str]]:
     """Checks JSON, mode structure and operation structures."""
-    modes = find_mode_files()
     valid_modes:list[ModeDict] = []
     errors:list[str] = []
 
-    for mode in modes:
-        if not validate_json(mode):
+    for mode in mode_files:
+        try:
+            loaded_mode = load_mode(mode)
+        except json.JSONDecodeError:
             message = (
                 f"Mode: {mode} JSONDecodeError return Err\n"
                 f"Check your {mode.name}"
             )
             errors.append(message)
             continue
-
-        loaded_mode = load_mode(mode)
 
         if not validate_mode_structure(loaded_mode):
             errors.append(f"Mode: {mode} has invalid structure")

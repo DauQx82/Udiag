@@ -3,7 +3,7 @@ import subprocess
 import argparse
 import sys
 
-from mode_manager import prepare_modes
+from mode_manager import prepare_modes, find_mode_files
 from structure import ModeDict, Operation, create_operation
 
 from terminal import present_terminal, terminal_title
@@ -134,7 +134,8 @@ def main(args, valid_modes: list[ModeDict], errors: list[str]) -> None:
                 print("# End.")
 
 if __name__ == "__main__":
-    valid_modes, errors = prepare_modes()
+    mode_files = find_mode_files()
+    valid_modes, errors = prepare_modes(mode_files)
 
     parser = build_parser(valid_modes)
     args = parser.parse_args()

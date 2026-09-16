@@ -23,10 +23,10 @@ class Operation:
     stderr: str = ""
     returncode: int | None = None
 
-def create_operation(instruction: OperationDict) -> Operation:
+def create_operation(operation_data: OperationDict) -> Operation:
     operation = Operation(
-    instruction["title"],
-    instruction["program"],
-    instruction["args"]
+    operation_data["title"],
+    operation_data["program"],
+    operation_data["args"]
     )
     return operation

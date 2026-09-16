@@ -11,20 +11,20 @@ from terminal import present_terminal, terminal_title
 env_with_colors = os.environ.copy()
 env_with_colors["SYSTEMD_COLORS"] = "1"
 
-def prepare_args(modes: list[ModeDict]) -> list[str]:
+def get_mode_names(modes: list[ModeDict]) -> list[str]:
     """Prepares a list of arguments for each specific mode."""
     args_list: list[str] = []
-    for mode in modes:
-        args_list.append(mode["name"])
+    for mode_files in modes:
+        args_list.append(mode_files["name"])
 
     return args_list
 
-def build_parser(correct_modes: list[ModeDict]) -> argparse.ArgumentParser:
+def build_parser(valid_modes: list[ModeDict]) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Udiag - Diagnostic system with JSON"
     )
 
-    mode_names = prepare_args(correct_modes)
+    mode_names = get_mode_names(valid_modes)
 
     # Errors
     parser.add_argument(
@@ -63,13 +63,13 @@ def build_parser(correct_modes: list[ModeDict]) -> argparse.ArgumentParser:
 
     return parser
 
-def warning(errors: list[str]) -> None:
+def print_mode_warning(errors: list[str]) -> None:
     if errors:
         print()
         print(f"{len(errors)} : Modes are not available")
         print("For details, run udiag.py -e, --errors" + "\n")
 
-def warning_details(errors: list[str]) -> None:
+def print_mode_errors(errors: list[str]) -> None:
     if errors:
         print(f"{len(errors)} : Modes are not available")
         print("Details:" + "\n")
@@ -81,7 +81,7 @@ def warning_details(errors: list[str]) -> None:
 
     print("No errors.")
 
-def execute(operation: Operation) -> None:
+def execute_operation(operation: Operation) -> None:
     result = subprocess.run([operation.program, *operation.args],
                             capture_output=True,
                             text=True,
@@ -91,56 +91,56 @@ def execute(operation: Operation) -> None:
     operation.stderr = result.stderr
     operation.returncode = result.returncode
 
-def main(args, correct_modes: list[ModeDict], errors: list[str]) -> None:
+def main(args, valid_modes: list[ModeDict], errors: list[str]) -> None:
     # Errors
     if args.mode_errors:
-        warning_details(errors)
+        print_mode_errors(errors)
         return
     
     # Run
     if args.command == "run":
-        for mode in correct_modes:
+        for mode in valid_modes:
             if args.mode == mode["name"]:
-                warning(errors)
+                print_mode_warning(errors)
                 print()
 
                 terminal_title(mode)
 
-                for i, instruction in enumerate(
+                for i, operation_data in enumerate(
                     mode["operations"],
                     start=1
                 ):
-                    operation = create_operation(instruction)
-                    execute(operation)
-                    present_terminal(i, instruction, operation)
+                    operation = create_operation(operation_data)
+                    execute_operation(operation)
+                    present_terminal(i, operation_data, operation)
 
                 print("# End.")
 
     # Show
     if args.command == "show":
-        for mode in correct_modes:
+        for mode in valid_modes:
             if args.mode == mode["name"]:
-                warning(errors)
+                print_mode_warning(errors)
                 print()
 
                 print(f"Mode: {mode["name"]}")
                 print(f"Description: {mode["description"] + "\n"}")
 
-                for i, instruction in enumerate(mode['operations'], start=1):
-                    print(f"{instruction['title']}:")
-                    print(f"	Program: {instruction['program']}")
-                    print(f"	Arguments: {instruction['args']}\n")
+                for i, operation_data in enumerate(mode['operations'], start=1):
+                    print(f"{operation_data['title']}:")
+                    print(f"	Program: {operation_data['program']}")
+                    print(f"	Arguments: {operation_data['args']}\n")
 
                 print("# End.")
 
 if __name__ == "__main__":
-    correct_modes, errors = prepare_modes()
+    valid_modes, errors = prepare_modes()
 
-    parser = build_parser(correct_modes)
+    parser = build_parser(valid_modes)
     args = parser.parse_args()
 
     if not args.mode_errors and args.command is None:
         parser.print_help()
         sys.exit(0)
 
-    main(args, correct_modes, errors)
+    main(args, valid_modes, errors)

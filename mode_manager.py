@@ -6,8 +6,7 @@ from structure import ModeDict, OperationDict
 BASE_DIR = Path(__file__).resolve().parent
 MODE_DIR = BASE_DIR / "modes"
 
-
-def scan_config() -> list[Path]:
+def find_mode_files() -> list[Path]:
     """Scans path for modes. Returns Path obj."""
     return list(MODE_DIR.glob("*.json"))
 
@@ -25,7 +24,7 @@ def validate_json(file: Path) -> bool:
     
     return True
 
-def validate_mode_structure(mode: ModeDict) -> bool:
+def validate_mode_structure(mode_file: ModeDict) -> bool:
     """Checks whether the dictionary contains the required diagnostic keys and whether their values ​​have the correct types."""
     expected_structure: dict[str, type] = {
         "name": str,
@@ -34,13 +33,13 @@ def validate_mode_structure(mode: ModeDict) -> bool:
     }
 
     for key, expected_type in expected_structure.items():
-        if key not in mode:
+        if key not in mode_file:
             return False
         
-        if not isinstance(mode[key], expected_type):
+        if not isinstance(mode_file[key], expected_type):
             return False
 
-    if not all(isinstance(operation, dict) for operation in mode["operations"]):
+    if not all(isinstance(operation, dict) for operation in mode_file["operations"]):
         return False
 
     return True
@@ -76,9 +75,9 @@ def validate_operation_structure(operation: OperationDict) -> bool:
 
 def prepare_modes() -> tuple[list[ModeDict], list[str]]:
     """Checks JSON, mode structure and operation structures."""
-    modes = scan_config()
-    loaded_json:list[ModeDict] = []
-    err_list:list[str] = []
+    modes = find_mode_files()
+    valid_modes:list[ModeDict] = []
+    errors:list[str] = []
 
     for mode in modes:
         if not validate_json(mode):
@@ -86,27 +85,27 @@ def prepare_modes() -> tuple[list[ModeDict], list[str]]:
                 f"Mode: {mode} JSONDecodeError return Err\n"
                 f"Check your {mode.name}"
             )
-            err_list.append(message)
+            errors.append(message)
             continue
 
-        loaded = load_mode(mode)
+        loaded_mode = load_mode(mode)
 
-        if not validate_mode_structure(loaded):
-            err_list.append(f"Mode: {mode} has invalid structure")
+        if not validate_mode_structure(loaded_mode):
+            errors.append(f"Mode: {mode} has invalid structure")
             continue
 
         operations_valid = True
 
-        for operation in loaded["operations"]:
+        for operation in loaded_mode["operations"]:
             if not validate_operation_structure(operation):
                 operations_valid = False
 
                 operation_name = operation.get("title", "<unknown operation>")
-                err_list.append(
+                errors.append(
                     f"Operation: {operation_name} has invalid structure"
                 )
 
         if operations_valid:
-            loaded_json.append(loaded)
+            valid_modes.append(loaded_mode)
 
-    return loaded_json, err_list
+    return valid_modes, errors

@@ -1,6 +1,9 @@
-from pathlib import Path
 import pytest
 import json
+
+# README!
+# type: ignore[arg-type] ← I use this construct so that Pylance doesn't report a type error.
+# This helps with further work because I can immediately see actual errors.
 
 from mode_manager import (find_mode_files,
                           validate_mode_structure,

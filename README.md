@@ -20,13 +20,15 @@ The Python code currently uses only the standard library. The bundled modes use
 
 - `udiag.py` — command-line interface and operation execution
 - `mode_manager.py` — mode discovery, JSON loading, and structural validation
-- `structure.py` — typed mode/operation structures and the runtime `Operation`
-  model
+- `handler_manager.py` — handler discovery
+- `structure.py` — typed mode/operation structures and the runtime `Operation` model
 - `terminal.py` — terminal report output presentation
 - `modes/base.json` — basic system-state diagnostic
 - `modes/system.json` — extended system and package diagnostic
+- `handlers/` — result-handler implementations and shared handler API
 
 The `modes/` directory must be next to `mode_manager.py`.
+The `handlers/` directory must be next to `handler_manager.py`.
 
 ## Usage
 
@@ -81,6 +83,14 @@ is shown or run.
 - `system` — displays system and kernel information, checks system state and
   failed services, and runs a package audit
 
+## Tests
+
+Run all tests with:
+
+```bash
+python3 -m pytest
+```
+
 ## JSON mode format
 
 A mode contains its metadata and an ordered list of operations:
@@ -106,7 +116,7 @@ Current operation fields:
 - `title` — human-readable operation name
 - `program` — executable to start
 - `args` — list of arguments passed to the executable
-- `handler` — intended result interpreter
+- `handler` — result evaluation strategy selected for the operation
 - `expected` — required for the `equals` and `contains` handlers
 
 Commands are started as an argument list with `shell=False`; the JSON does not
@@ -126,7 +136,7 @@ The current version:
 This is still an early prototype. In particular:
 
 - `handler` and `expected` are validated as metadata but are
-  not yet used to interpret 
+  not yet used to interpret operation results
 - terminal output is raw; there is no success/warning/failure interpretation
 - standard error is captured but is not currently printed
 - subprocess startup errors are not handled and operations have no timeout

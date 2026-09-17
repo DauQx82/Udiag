@@ -62,9 +62,7 @@ Cross-distribution compatibility is not currently tested or guaranteed.
 ## Intended design
 
 A diagnostic scenario defines what should be checked. A mode is the current
-JSON representation of such a scenario.
-
-A scenario defines what should be checked. Udiag executes each operation and
+JSON representation of such a scenario. Udiag executes each operation and
 captures its standard output, standard error, and return code.
 
 Simple, reusable handlers are intended to evaluate generic conditions such as
@@ -89,12 +87,12 @@ Running the test suite requires `pytest`.
 
 - `udiag.py` — command-line interface and operation execution
 - `mode_manager.py` — mode discovery, JSON loading, and structural validation
-- `handler_manager.py` — handler discovery
+- `handler_manager.py` — handler discovery and dynamic module loading
 - `structure.py` — typed mode/operation structures and the runtime `Operation` model
 - `terminal.py` — terminal report output presentation
 - `modes/base.json` — basic system-state diagnostic
 - `modes/system.json` — extended system and package diagnostic
-- `handlers/` — base handler API and placeholders for planned handler implementations
+- `handlers/` — base handler API and early handler implementations
 
 The `modes/` directory must be next to `mode_manager.py`.
 The `handlers/` directory must be next to `handler_manager.py`.
@@ -187,8 +185,8 @@ Current operation fields:
 - `args` — list of arguments passed to the executable
 - `handler` — intended result evaluation strategy;
 currently validated as metadata but not executed
-- `expected` — `expected` — expected value; currently required by validation for the
-  `equals` and `contains` handlers
+- `expected` — expected value used by handlers that require one;
+  handler-specific validation is under development
 
 Commands are started as an argument list with `shell=False`; the JSON does not
 contain a shell command string.
@@ -203,6 +201,8 @@ The current version:
 - excludes invalid modes and reports their errors
 - provides `run`, `show`, and `--errors`
 - captures standard output, standard error, and the process return code
+- handler modules can be loaded dynamically, but are not yet connected to
+  mode validation or operation execution
 
 This is still an early prototype. In particular:
 

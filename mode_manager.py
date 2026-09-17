@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from structure import ModeDict, OperationDict
+from handler_manager import handler_names, find_handlers
 
 BASE_DIR = Path(__file__).resolve().parent
 MODE_DIR = BASE_DIR / "modes"
@@ -40,6 +41,7 @@ def validate_mode_structure(mode_file: ModeDict) -> bool:
 
 def validate_operation_structure(operation: OperationDict) -> bool:
     """Checks the operation structure."""
+    # TODO: Move handler-specific validation out of this function as the handler system develops.
     expected_structure: dict[str, type] = {
         "title": str,
         "program": str,
@@ -66,6 +68,16 @@ def validate_operation_structure(operation: OperationDict) -> bool:
     if not all(isinstance(arg, str) for arg in operation["args"]):
         return False
 
+    return True
+
+def validate_operation_handler(operation: OperationDict) -> bool: # Coś lepszego trzeba wymyślić.
+    handlers = handler_names(find_handlers())
+    if not operation["handler"] in handlers:
+        return False
+
+    if not isinstance(operation["handler"], str):
+        return False
+    # In progress 
     return True
 
 def prepare_modes(mode_files: list[Path]) -> tuple[list[ModeDict], list[str]]:

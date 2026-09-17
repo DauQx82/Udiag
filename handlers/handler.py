@@ -11,6 +11,11 @@ class BaseHandler(ABC):
         self.result = result
         self.expected = expected
 
+    @classmethod
+    @abstractmethod
+    def validate_config(cls, operation) -> bool:
+        pass
+
     @abstractmethod
     def evaluate(self) -> HandlerResult:
         pass

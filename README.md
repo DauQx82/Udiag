@@ -1,20 +1,67 @@
-# udiag
+# Udiag
 
-`udiag` is an early Python prototype for running repeatable Ubuntu diagnostic
-procedures defined in JSON files.
+A personal helper for repeatable system checks and routine diagnostic tasks.
 
-The project separates the description of a diagnostic procedure from the code
-that loads, validates, executes, and presents it. Future versions are intended
-to interpret command results and sanitize reports, instead of leaving that work
-to the user.
+> **Project status:** Early prototype.
+>
+> Currently working and tested:
+> - discovery of JSON diagnostic modes
+> - loading and structural validation of modes and operations
+> - execution of configured programs through `subprocess`
+> - capturing standard output, standard error, and return codes
+>
+> Current execution flow:
+>
+> `JSON mode → Udiag → subprocess → selected program → raw output`
+>
+> Result handlers are currently under development.
+
+## What is Udiag?
+
+Udiag is a small personal tool for simple, repeatable and predictable tasks,
+such as targeted system diagnostics and routine checks.
+
+It started as a way to avoid manually repeating the same diagnostic commands
+on known machines. Diagnostic procedures are described as JSON modes, while
+Udiag handles their validation and execution.
+
+The longer-term goal is to reduce raw command output into useful diagnostic
+results while still keeping the original details available when needed.
+
+## What Udiag is not
+
+Udiag is not intended to be:
+
+- a continuous monitoring system
+- a configuration management or orchestration tool
+- an automated remediation system
+- a replacement for existing GNU/Linux diagnostic tools
+
+Udiag is intended to use existing tools and make small, repeatable diagnostic
+tasks easier to run and review.
+
+## Platform scope
+
+Udiag is currently developed and tested primarily on Ubuntu.
+
+The bundled diagnostic modes use tools commonly available in Ubuntu/Debian
+environments, such as `systemctl`, `hostnamectl`, `uname`, and `dpkg`.
+
+The core is not intended to depend on those specific tools. Modes describe
+which programs should be executed, so support for other environments can be
+added through different modes and, later, tool-specific interpreters.
+
+Ubuntu is the development/reference platform; the architecture is
+intended to keep distribution-specific knowledge outside the core.
+
+Cross-distribution compatibility is not currently tested or guaranteed.
 
 ## Requirements
 
 - Ubuntu or another system that provides the commands used by a selected mode
 - Python 3.12 or newer
 
-The Python code currently uses only the standard library. The bundled modes use
-`systemctl`, `hostnamectl`, `uname`, and `dpkg`.
+The Python code currently uses only the standard library.
 
 ## Project structure
 

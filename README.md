@@ -1,10 +1,10 @@
 # Udiag
 
-A personal helper for repeatable system checks and routine diagnostic tasks.
+A personal, scenario-driven helper for repeatable GNU/Linux diagnostics.
 
 > **Project status:** Early prototype.
 >
-> Currently working and tested:
+> Currently implemented:
 > - discovery of JSON diagnostic modes
 > - loading and structural validation of modes and operations
 > - execution of configured programs through `subprocess`
@@ -13,6 +13,9 @@ A personal helper for repeatable system checks and routine diagnostic tasks.
 > Current execution flow:
 >
 > `JSON mode → Udiag → subprocess → selected program → raw output`
+>
+> Automated tests currently cover mode and operation validation, mode
+> preparation, and command-line argument parsing.
 >
 > Result handlers are currently under development.
 
@@ -56,12 +59,31 @@ intended to keep distribution-specific knowledge outside the core.
 
 Cross-distribution compatibility is not currently tested or guaranteed.
 
+## Intended design
+
+A diagnostic scenario defines what should be checked. A mode is the current
+JSON representation of such a scenario.
+
+A scenario defines what should be checked. Udiag executes each operation and
+captures its standard output, standard error, and return code.
+
+Simple, reusable handlers are intended to evaluate generic conditions such as
+equality, containment, or empty output. Tool-specific interpreters are intended
+to understand more complex output formats.
+
+Their results will be passed to presenters that produce concise,
+human-readable reports while preserving raw details.
+
+These components are part of the planned architecture and are not fully
+implemented yet.
+
 ## Requirements
 
-- Ubuntu or another system that provides the commands used by a selected mode
 - Python 3.12 or newer
+- Ubuntu or another system that provides the commands used by the selected mode
 
-The Python code currently uses only the standard library.
+The runtime code currently uses only the Python standard library.
+Running the test suite requires `pytest`.
 
 ## Project structure
 
@@ -72,7 +94,7 @@ The Python code currently uses only the standard library.
 - `terminal.py` — terminal report output presentation
 - `modes/base.json` — basic system-state diagnostic
 - `modes/system.json` — extended system and package diagnostic
-- `handlers/` — result-handler implementations and shared handler API
+- `handlers/` — base handler API and placeholders for planned handler implementations
 
 The `modes/` directory must be next to `mode_manager.py`.
 The `handlers/` directory must be next to `handler_manager.py`.
@@ -163,8 +185,10 @@ Current operation fields:
 - `title` — human-readable operation name
 - `program` — executable to start
 - `args` — list of arguments passed to the executable
-- `handler` — result evaluation strategy selected for the operation
-- `expected` — required for the `equals` and `contains` handlers
+- `handler` — intended result evaluation strategy;
+currently validated as metadata but not executed
+- `expected` — `expected` — expected value; currently required by validation for the
+  `equals` and `contains` handlers
 
 Commands are started as an argument list with `shell=False`; the JSON does not
 contain a shell command string.
@@ -188,22 +212,24 @@ This is still an early prototype. In particular:
 - standard error is captured but is not currently printed
 - subprocess startup errors are not handled and operations have no timeout
 - semantic validation is still limited and does not yet restrict handler
-- reports are not sanitized and include the local username and device hostname
+  names to the supported set
+- reports are not sanitized and may include the local username, device
+  hostname, or other environment-specific information
 
 ## Security
 
-Only run mode files you trust. Using `shell=False` prevents shell parsing, but a
-mode can still request any installed executable with arbitrary arguments. Risk
-classification, confirmation for system-changing operations, trust metadata,
-and output sanitization are planned but are not implemented yet.
+Only run mode files you trust. Using `shell=False` prevents shell parsing, but
+Udiag does not sandbox executables or restrict what a mode can run. Review every
+mode before executing it.
+
+Trust metadata and output sanitization are not implemented yet.
 
 ## Planned work
 
 - connect handlers and expected values to result interpretation
 - show clear operation statuses
-- validate supported handler
+- validate handler names against the supported set
 - handle missing executables, timeouts, and standard error cleanly
-- add risk levels and confirmation for system-changing operations
 - sanitize reports before they are shared
 - support optional aliases configured by the user
 

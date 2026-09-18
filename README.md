@@ -1,166 +1,188 @@
-# Udiag
+# Udiag 
+> Working name. Planned name: **MyQDiag**
+> An early Python prototype for discovering, validating, executing, and
+> evaluating declarative JSON scenarios.
 
-A personal, scenario-driven helper for repeatable GNU/Linux diagnostics.
-
-> **Project status:** Early prototype.
+> **Status:** The current runtime validates JSON modes and executes their
+> operations, but still presents raw command output. The handler pipeline
+> described below is under development.
 >
-> Currently implemented:
-> - discovery of JSON diagnostic modes
-> - loading and structural validation of modes and operations
-> - execution of configured programs through `subprocess`
-> - capturing standard output, standard error, and return codes
->
-> Current execution flow:
->
-> `JSON mode → Udiag → subprocess → selected program → raw output`
->
-> Automated tests currently cover mode and operation validation, mode
-> preparation, and command-line argument parsing.
->
-> Result handlers are currently under development.
+> Changes from each development session are published incrementally, so the
+> repository may contain transitional code between milestones.
 
-## What is Udiag?
+## Overview
 
-Udiag is a small personal tool for simple, repeatable and predictable tasks,
-such as targeted system diagnostics and routine checks.
+Udiag began as a personal helper for repeatable GNU/Linux diagnostics, developed
+primarily on Ubuntu. The project is now moving toward a clearer separation
+between two layers:
 
-It started as a way to avoid manually repeating the same diagnostic commands
-on known machines. Diagnostic procedures are described as JSON modes, while
-Udiag handles their validation and execution.
+1. **Scenario engine** — a small core for discovering JSON scenarios, validating
+   them, executing operations, selecting handlers, and returning standardized
+   results.
+2. **Udiag diagnostics** — GNU/Linux scenarios, tool-specific interpreters, and
+   diagnostic presentation built on top of that engine.
 
-The longer-term goal is to reduce raw command output into useful diagnostic
-results while still keeping the original details available when needed.
+Scenario files define **what** should be executed. The engine is intended to
+provide **how** scenarios are discovered, validated, executed, and evaluated.
+It should not contain built-in knowledge of Ubuntu, `systemctl`, `journalctl`,
+or `dpkg`.
 
-## What Udiag is not
+The current code still calls scenarios *modes*. This transitional terminology
+does not need to be changed before the first complete pipeline works.
 
-Udiag is not intended to be:
+## Target pipeline
 
-- a continuous monitoring system
-- a configuration management or orchestration tool
-- an automated remediation system
-- a replacement for existing GNU/Linux diagnostic tools
+```text
+JSON scenario
+    ↓
+discovery and loading
+    ↓
+common structural validation
+    ↓
+handler lookup and dynamic loading
+    ↓
+handler.validate_config(...)
+    ↓
+operation execution
+    ↓
+OperationResult
+    ↓
+handler.evaluate(...)
+    ↓
+HandlerResult
+```
 
-Udiag is intended to use existing tools and make small, repeatable diagnostic
-tasks easier to run and review.
+### Target responsibilities
 
-## Platform scope
+In the target design, the **engine** owns discovery, JSON loading, validation of
+common operation fields, execution, raw result collection, handler dispatch,
+and predictable handling of configuration or loading errors.
 
-Udiag is currently developed and tested primarily on Ubuntu.
+**Handlers** are reusable evaluation strategies such as `equals`, `contains`,
+`empty`, and `information`. They are intended to implement the `BaseHandler`
+API, validate their own configuration, evaluate an `OperationResult`, and
+return a `HandlerResult`.
 
-The bundled diagnostic modes use tools commonly available in Ubuntu/Debian
-environments, such as `systemctl`, `hostnamectl`, `uname`, and `dpkg`.
+For example, the engine can require `title`, `program`, `args`, and `handler`,
+while the `equals` handler should decide whether its `expected` field is valid.
+The prototype can already discover and load Python modules from `handlers/`, but
+class discovery, registration, and dispatch are not connected yet.
 
-The core is not intended to depend on those specific tools. Modes describe
-which programs should be executed, so support for other environments can be
-added through different modes and, later, tool-specific interpreters.
+**Interpreters** are a later, optional layer for normalizing complex,
+tool-specific output before a handler evaluates it. An interpreter understands
+a data format; a handler evaluates the normalized result. Their API will be
+designed only when a concrete use case requires it.
 
-Ubuntu is the development/reference platform; the architecture is
-intended to keep distribution-specific knowledge outside the core.
+## Scope
 
-Cross-distribution compatibility is not currently tested or guaranteed.
+The engine is intended to be generic only as far as real project needs require:
 
-## Intended design
+```text
+scenario → operation → execution → optional interpretation → evaluation → result
+```
 
-A diagnostic scenario defines what should be checked. A mode is the current
-JSON representation of such a scenario. Udiag executes each operation and
-captures its standard output, standard error, and return code.
+It is not currently intended to become a universal workflow framework, a
+continuous monitoring system, a configuration-management platform, or an
+automated remediation system. New abstractions should follow working use cases
+rather than anticipate every possible workflow.
 
-Simple, reusable handlers are intended to evaluate generic conditions such as
-equality, containment, or empty output. Tool-specific interpreters are intended
-to understand more complex output formats.
+## Current state
 
-Their results will be passed to presenters that produce concise,
-human-readable reports while preserving raw details.
+Implemented or started:
 
-These components are part of the planned architecture and are not fully
-implemented yet.
+- JSON mode discovery, loading, and common structural validation
+- subprocess execution with captured stdout, stderr, and return code
+- `OperationResult` and `HandlerResult` data models
+- an abstract `BaseHandler` API and an `EqualsHandler` skeleton
+- handler-file discovery and recoverable dynamic module loading
+- the original diagnostic CLI and Ubuntu-oriented example modes
+- pytest tests for validation, mode preparation, and CLI parsing
+
+The current runtime still follows this shorter path:
+
+```text
+JSON mode → Udiag CLI → subprocess → selected program → raw output
+```
+
+The terminal currently displays stdout and the return code; captured stderr is
+not presented.
+
+The missing connection is:
+
+```text
+loaded module
+    → locate its BaseHandler implementation
+    → build a handler registry
+    → call handler.validate_config(...)
+    → execute and create OperationResult
+    → call handler.evaluate(...)
+    → return HandlerResult
+```
+
+The first milestone is one complete end-to-end flow:
+
+```text
+one JSON scenario
+    → one operation
+    → dynamically discovered "equals" handler
+    → handler-specific validation
+    → execution
+    → OperationResult
+    → handler.evaluate(...)
+    → HandlerResult
+```
+
+Additional handlers, interpreters, and larger architectural changes should come
+after this flow works.
 
 ## Requirements
 
 - Python 3.12 or newer
-- Ubuntu or another system that provides the commands used by the selected mode
+- `pytest` for running the test suite
+- the programs referenced by an executed scenario
 
-The runtime code currently uses only the Python standard library.
-Running the test suite requires `pytest`.
+The runtime currently uses only the Python standard library.
 
 ## Project structure
 
-- `udiag.py` — command-line interface and operation execution
-- `mode_manager.py` — mode discovery, JSON loading, and structural validation
+- `udiag.py` — current diagnostic CLI and operation execution
+- `mode_manager.py` — JSON mode discovery, loading, and structural validation
 - `handler_manager.py` — handler discovery and dynamic module loading
-- `structure.py` — typed mode/operation structures and the runtime `Operation` model
-- `terminal.py` — terminal report output presentation
-- `modes/base.json` — basic system-state diagnostic
-- `modes/system.json` — extended system and package diagnostic
-- `handlers/` — base handler API and early handler implementations
+- `structure.py` — typed configuration structures and result models
+- `terminal.py` — current terminal presentation
+- `modes/` — Ubuntu-oriented JSON scenarios
+- `handlers/` — `BaseHandler`, the `EqualsHandler` skeleton, and placeholders
+- `tests/` — validation, mode-preparation, and CLI tests
 
-The `modes/` directory must be next to `mode_manager.py`.
-The `handlers/` directory must be next to `handler_manager.py`.
+These names reflect the current prototype. Separating the engine from Udiag does
+not require renaming every module in the same change.
 
-## Usage
-
-Run these commands from the project directory:
+## Current CLI
 
 ```bash
+# General help
 python3 udiag.py
 python3 udiag.py --help
-```
 
-Running the program without a command displays the available commands. To see
-the modes accepted by a command, open its help:
-
-```bash
-python3 udiag.py run --help
-python3 udiag.py show --help
-```
-
-### Inspect a mode
-
-`show` prints a mode description and its operations without executing them:
-
-```bash
+# Inspect a mode without executing it
 python3 udiag.py show base
 python3 udiag.py show system
-```
 
-### Run a mode
-
-`run` executes every operation in the selected mode in order:
-
-```bash
+# Run a mode
 python3 udiag.py run base
 python3 udiag.py run system
-```
 
-### Show configuration errors
-
-Invalid modes are excluded from the available CLI choices. Their validation
-errors can be displayed with:
-
-```bash
+# Show mode-configuration errors
 python3 udiag.py --errors
 ```
 
-If some modes are invalid, a short warning is also printed before a valid mode
-is shown or run.
+`run` currently executes operations and displays raw results. Handler evaluation
+is not connected to execution yet.
 
-## Bundled modes
+## JSON scenario format
 
-- `base` — checks the overall system state with `systemctl`
-- `system` — displays system and kernel information, checks system state and
-  failed services, and runs a package audit
-
-## Tests
-
-Run all tests with:
-
-```bash
-python3 -m pytest
-```
-
-## JSON mode format
-
-A mode contains its metadata and an ordered list of operations:
+A scenario is currently represented as a JSON mode containing metadata and an
+ordered list of operations:
 
 ```json
 {
@@ -178,66 +200,43 @@ A mode contains its metadata and an ordered list of operations:
 }
 ```
 
-Current operation fields:
+Common operation fields are `title`, `program`, `args`, and `handler`.
+Handler-specific fields should be validated by the selected handler; in this
+example, `expected` belongs to `equals`. The prototype still performs some of
+this validation centrally while the handler pipeline is being connected.
 
-- `title` — human-readable operation name
-- `program` — executable to start
-- `args` — list of arguments passed to the executable
-- `handler` — intended result evaluation strategy;
-currently validated as metadata but not executed
-- `expected` — expected value used by handlers that require one;
-  handler-specific validation is under development
+Programs are started from an argument list with `shell=False`; scenarios do not
+contain shell command strings.
 
-Commands are started as an argument list with `shell=False`; the JSON does not
-contain a shell command string.
+## Tests
 
-## Current behavior and limitations
+```bash
+python3 -m pytest
+```
 
-The current version:
-
-- discovers `*.json` files in `modes/`
-- validates JSON syntax and the presence/types of required top-level fields
-- validates the basic structure of every operation
-- excludes invalid modes and reports their errors
-- provides `run`, `show`, and `--errors`
-- captures standard output, standard error, and the process return code
-- handler modules can be loaded dynamically, but are not yet connected to
-  mode validation or operation execution
-
-This is still an early prototype. In particular:
-
-- `handler` and `expected` are validated as metadata but are
-  not yet used to interpret operation results
-- terminal output is raw; there is no success/warning/failure interpretation
-- standard error is captured but is not currently printed
-- subprocess startup errors are not handled and operations have no timeout
-- semantic validation is still limited and does not yet restrict handler
-  names to the supported set
-- reports are not sanitized and may include the local username, device
-  hostname, or other environment-specific information
+The current tests cover mode and operation validation, preparation of valid
+modes, and CLI parsing. Handler loading and the complete evaluation pipeline
+need further coverage as they are connected.
 
 ## Security
 
-Only run mode files you trust. Using `shell=False` prevents shell parsing, but
-Udiag does not sandbox executables or restrict what a mode can run. Review every
-mode before executing it.
+Only run scenario files you trust. `shell=False` prevents shell parsing, but the
+engine does not sandbox executables or restrict which programs and arguments a
+scenario may request. Trust metadata and output sanitization are not implemented
+yet.
 
-Trust metadata and output sanitization are not implemented yet.
+## Next steps
 
-## Planned work
-
-- connect handlers and expected values to result interpretation
-- show clear operation statuses
-- validate handler names against the supported set
-- handle missing executables, timeouts, and standard error cleanly
-- sanitize reports before they are shared
-- support optional aliases configured by the user
+1. locate `BaseHandler` implementations in dynamically loaded modules
+2. build a handler registry without a central handler list
+3. delegate handler-specific configuration validation
+4. produce `OperationResult` and evaluate it with `EqualsHandler`
+5. test the first complete pipeline
+6. separate the neutral engine from Udiag diagnostics incrementally
 
 ## License
 
 Copyright © 2026 DauQx82
 
-Udiag is licensed under the GNU General Public License
-version 3 or later (`GPL-3.0-or-later`).
-
-See [LICENSE](LICENSE) for the full license text.
+This project is licensed under the GNU General Public License, version 3 or
+later (`GPL-3.0-or-later`). See [LICENSE](LICENSE) for the full license text.

@@ -65,8 +65,9 @@ return a `HandlerResult`.
 
 For example, the engine can require `title`, `program`, `args`, and `handler`,
 while the `equals` handler should decide whether its `expected` field is valid.
-The prototype can already discover and load Python modules from `handlers/`, but
-class discovery, registration, and dispatch are not connected yet.
+The prototype can already discover handler files, load their modules dynamically,
+locate concrete `BaseHandler` implementations, and build a handler registry.
+Handler validation and runtime dispatch are not connected to scenarios yet.
 
 **Interpreters** are a later, optional layer for normalizing complex,
 tool-specific output before a handler evaluates it. An interpreter understands
@@ -95,6 +96,8 @@ Implemented or started:
 - `OperationResult` and `HandlerResult` data models
 - an abstract `BaseHandler` API and an `EqualsHandler` skeleton
 - handler-file discovery and recoverable dynamic module loading
+- concrete `BaseHandler` class discovery and handler registry construction
+- collection of errors from invalid or incomplete handler modules
 - the original diagnostic CLI and Ubuntu-oriented example modes
 - pytest tests for validation, mode preparation, and CLI parsing
 
@@ -110,9 +113,8 @@ not presented.
 The missing connection is:
 
 ```text
-loaded module
-    → locate its BaseHandler implementation
-    → build a handler registry
+handler registry
+    → use the selected handler during scenario validation
     → call handler.validate_config(...)
     → execute and create OperationResult
     → call handler.evaluate(...)
@@ -147,7 +149,7 @@ The runtime currently uses only the Python standard library.
 
 - `udiag.py` — current diagnostic CLI and operation execution
 - `mode_manager.py` — JSON mode discovery, loading, and structural validation
-- `handler_manager.py` — handler discovery and dynamic module loading
+- `handler_manager.py` — handler discovery, dynamic loading, class validation, and registry construction
 - `structure.py` — typed configuration structures and result models
 - `terminal.py` — current terminal presentation
 - `modes/` — Ubuntu-oriented JSON scenarios
@@ -227,11 +229,11 @@ yet.
 
 ## Next steps
 
-1. locate `BaseHandler` implementations in dynamically loaded modules
-2. build a handler registry without a central handler list
-3. delegate handler-specific configuration validation
-4. produce `OperationResult` and evaluate it with `EqualsHandler`
-5. test the first complete pipeline
+1. connect the handler registry to scenario validation
+2. delegate handler-specific configuration validation to the selected handler
+3. complete `EqualsHandler.evaluate()`
+4. connect `OperationResult` to handler evaluation and produce `HandlerResult`
+5. test the first complete end-to-end pipeline
 6. separate the neutral engine from Udiag diagnostics incrementally
 
 ## License

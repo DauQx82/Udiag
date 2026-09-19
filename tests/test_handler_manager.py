@@ -1,3 +1,6 @@
+# Copyright (C) 2026 DauQx82
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 from types import ModuleType
 
 from handler_manager import find_handlers, build_handler_map, load_handler

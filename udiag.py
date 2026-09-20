@@ -76,14 +76,14 @@ def build_parser(valid_modes: list[ModeDict]) -> argparse.ArgumentParser:
     return parser
 
 
-def print_mode_warning() -> None: # TODO
+def print_mode_warning() -> None:
     if errors.count > 0:
         print()
         print(f"{errors.count} Errors")
         print("For details, run udiag.py -e, --errors" + "\n")
 
 
-def print_mode_errors() -> None: # TODO
+def print_mode_errors() -> None:
     if errors.handler:
         print(f"Number of handler errors: {len(errors.handler)}")
         print("Details:" + "\n")
@@ -202,4 +202,4 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(0)
 
-    main(args,registry, valid_modes) # FIXME Teraz mam dataclass, to nie muszę tego przekazywać.
+    main(args,registry, valid_modes)

@@ -1,7 +1,7 @@
 # Copyright (C) 2026 DauQx82
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from typing import TypedDict, NotRequired
+from typing import TypedDict, NotRequired, Literal, Union
 from dataclasses import dataclass
 
 class OperationDict(TypedDict):
@@ -46,3 +46,7 @@ def create_operation(operation_data: OperationDict) -> Operation:
     operation_data["args"]
     )
     return operation
+
+type OperationSuccess = tuple[Literal[True], HandlerResult]
+type OperationFailure = tuple[Literal[False], Exception]
+type OperationOutcome = Union[OperationSuccess, OperationFailure]

@@ -144,17 +144,26 @@ def main(args,
                     start=1
                 ):
                     operation = create_operation(operation_data)
-                    operation_result = execute_operation(operation)
-                    handler_name = operation_data["handler"]
-                    handler_class = registry[handler_name]
+                    try:
+                        operation_result = execute_operation(operation)
+                    except (
+                        FileNotFoundError,
+                        PermissionError,
+                        subprocess.TimeoutExpired
+                        ) as error:
+                        outcome = (False, error)
+                    else:
+                        handler_name = operation_data["handler"]
+                        handler_class = registry[handler_name]
 
-                    handler = handler_class(
-                        operation_result,
-                        operation_data.get("expected")
-                    )
+                        handler = handler_class(
+                            operation_result,
+                            operation_data.get("expected")
+                        )
 
-                    handler_result = handler.evaluate()
-                    present_terminal(i, operation_data, handler_result)
+                        handler_result = handler.evaluate()
+                        outcome = (True, handler_result)
+                    present_terminal(i, operation_data, outcome)
 
                 print("# End.")
 

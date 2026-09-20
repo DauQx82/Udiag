@@ -30,9 +30,9 @@ def _validate_handler_lookup() -> tuple[bool, str]:
 
     return True, ""
 
-FindHandlersSuccess = tuple[Literal[True], list[Path]]
-FindHandlersFailure = tuple[Literal[False], str]
-FindHandlersResult = Union[FindHandlersSuccess, FindHandlersFailure]
+type FindHandlersSuccess = tuple[Literal[True], list[Path]]
+type FindHandlersFailure = tuple[Literal[False], str]
+type FindHandlersResult = Union[FindHandlersSuccess, FindHandlersFailure]
 
 def find_handlers() -> FindHandlersResult:
     """
@@ -63,9 +63,9 @@ def build_handler_map(handler_input: FindHandlersSuccess) -> dict[str, Path]:
     return handlers
 
 
-LoadHandlerSuccess = tuple[Literal[True], ModuleType]
-LoadHandlerFailure = tuple[Literal[False], str]
-LoadHandlerResult = Union[LoadHandlerSuccess, LoadHandlerFailure]
+type LoadHandlerSuccess = tuple[Literal[True], ModuleType]
+type LoadHandlerFailure = tuple[Literal[False], str]
+type LoadHandlerResult = Union[LoadHandlerSuccess, LoadHandlerFailure]
 
 def load_handler(handler_file: Path) -> LoadHandlerResult:
     """
@@ -96,9 +96,9 @@ def load_handler(handler_file: Path) -> LoadHandlerResult:
     return True, module
 
 
-FindHandlerClassSuccess = tuple[Literal[True], type[BaseHandler]]
-FindHandlerClassFailure = tuple[Literal[False], str]
-FindHandlerClassResult = Union[FindHandlerClassSuccess, FindHandlerClassFailure]
+type FindHandlerClassSuccess = tuple[Literal[True], type[BaseHandler]]
+type FindHandlerClassFailure = tuple[Literal[False], str]
+type FindHandlerClassResult = Union[FindHandlerClassSuccess, FindHandlerClassFailure]
 
 def find_handler_class(module: ModuleType) -> FindHandlerClassResult:
     """

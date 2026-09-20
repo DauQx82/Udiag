@@ -4,7 +4,7 @@
 from getpass import getuser
 from socket import gethostname
 from datetime import datetime
-from structure import ModeDict, OperationDict, Operation
+from structure import ModeDict, OperationDict, HandlerResult
 
 def terminal_title(mode: ModeDict) -> None:
     print(f"=== {mode["description"]} ===")
@@ -13,12 +13,8 @@ def terminal_title(mode: ModeDict) -> None:
 
 def present_terminal(i: int,
                      instruction: OperationDict,
-                     operation: Operation) -> None:
+                     operation: HandlerResult) -> None:
     """Preparing a report""" # TODO Full docstring.
 
-    print(f"	[{i}] {instruction['title']}\n")
-    print(f"args: {instruction['args']}\n")
-
-    print(f"{operation.stdout}")
-    print(f"Returncode: {operation.returncode}")
+    print(i, f"{instruction['title']}: {"OK" if operation.success is True else "FAIL"}:", operation.actual)
     print()

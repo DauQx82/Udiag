@@ -1,18 +1,26 @@
 # Copyright (C) 2026 DauQx82
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import os
 import subprocess
 import argparse
 import sys
 
 from mode_manager import prepare_modes, find_mode_files
-from structure import ModeDict, Operation, create_operation
+from structure import (
+    ModeDict,
+    Operation,
+    OperationResult,
+    create_operation
+)
 
+from handler_manager import (
+    find_handlers,
+    build_handler_map,
+    build_handler_registry,
+)
+from handlers.handler import BaseHandler
 from terminal import present_terminal, terminal_title
 
-env_with_colors = os.environ.copy()
-env_with_colors["SYSTEMD_COLORS"] = "1"
 
 def get_mode_names(modes: list[ModeDict]) -> list[str]:
     """Prepares a list of arguments for each specific mode."""
@@ -21,6 +29,7 @@ def get_mode_names(modes: list[ModeDict]) -> list[str]:
         args_list.append(mode_files["name"])
 
     return args_list
+
 
 def build_parser(valid_modes: list[ModeDict]) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -66,35 +75,45 @@ def build_parser(valid_modes: list[ModeDict]) -> argparse.ArgumentParser:
 
     return parser
 
+
 def print_mode_warning(errors: list[str]) -> None:
     if errors:
         print()
-        print(f"{len(errors)} : Modes are not available")
+        print(f"{len(errors)} Errors")
         print("For details, run udiag.py -e, --errors" + "\n")
+
 
 def print_mode_errors(errors: list[str]) -> None:
     if errors:
-        print(f"{len(errors)} : Modes are not available")
+        print(f"{len(errors)} Errors\n")
         print("Details:" + "\n")
 
         for i, error in enumerate(errors, start=1):
-            print(f"{i}. {error}" + "\n")
+            print(f"{i}. {error}")
 
         return
 
     print("No errors.")
 
-def execute_operation(operation: Operation) -> None:
+
+def execute_operation(operation: Operation) -> OperationResult:
     result = subprocess.run([operation.program, *operation.args],
                             capture_output=True,
                             text=True,
-                            env=env_with_colors)
+                            timeout=10) # TODO A timeout became a normal operation 
+                                        # result/error instead of terminating the program.
 
-    operation.stdout = result.stdout
-    operation.stderr = result.stderr
-    operation.returncode = result.returncode
+    operation_result = OperationResult(
+        result.stdout,
+        result.stderr,
+        result.returncode
+    )
+    return operation_result
 
-def main(args, valid_modes: list[ModeDict], errors: list[str]) -> None:
+def main(args,
+         registry: dict[str, type[BaseHandler]],
+         valid_modes: list[ModeDict],
+         errors: list[str]) -> None:
     # Errors
     if args.mode_errors:
         print_mode_errors(errors)
@@ -114,8 +133,17 @@ def main(args, valid_modes: list[ModeDict], errors: list[str]) -> None:
                     start=1
                 ):
                     operation = create_operation(operation_data)
-                    execute_operation(operation)
-                    present_terminal(i, operation_data, operation)
+                    operation_result = execute_operation(operation)
+                    handler_name = operation_data["handler"]
+                    handler_class = registry[handler_name]
+
+                    handler = handler_class(
+                        operation_result,
+                        operation_data.get("expected")
+                    )
+
+                    handler_result = handler.evaluate()
+                    present_terminal(i, operation_data, handler_result)
 
                 print("# End.")
 
@@ -136,9 +164,23 @@ def main(args, valid_modes: list[ModeDict], errors: list[str]) -> None:
 
                 print("# End.")
 
+
 if __name__ == "__main__":
+    handlers = find_handlers()
+
+    if handlers[0] is False:
+        print(handlers[1])
+        sys.exit(1)
+
+    handler_map = build_handler_map(handlers)
+    registry, handler_errors = build_handler_registry(handler_map)
+
+    if not registry:
+        print("No valid handlers available.")
+        sys.exit(1)
+
     mode_files = find_mode_files()
-    valid_modes, errors = prepare_modes(mode_files)
+    valid_modes, errors = prepare_modes(mode_files, registry)
 
     parser = build_parser(valid_modes)
     args = parser.parse_args()
@@ -147,4 +189,5 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(0)
 
-    main(args, valid_modes, errors)
+    errors.extend(handler_errors)
+    main(args,registry, valid_modes, errors)

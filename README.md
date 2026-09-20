@@ -1,11 +1,13 @@
-# Udiag 
+# Udiag
+
 > Working name. Planned name: **MyQDiag**
+>
 > An early Python prototype for discovering, validating, executing, and
 > evaluating declarative JSON scenarios.
 
-> **Status:** The current runtime validates JSON modes and executes their
-> operations, but still presents raw command output. The handler pipeline
-> described below is under development.
+> **Status:** The current runtime validates JSON modes, selects dynamically
+> discovered handlers, executes operations, and evaluates their results through
+> the handler pipeline. Terminal presentation is still minimal.
 >
 > Changes from each development session are published incrementally, so the
 > repository may contain transitional code between milestones.
@@ -28,9 +30,9 @@ It should not contain built-in knowledge of Ubuntu, `systemctl`, `journalctl`,
 or `dpkg`.
 
 The current code still calls scenarios *modes*. This transitional terminology
-does not need to be changed before the first complete pipeline works.
+can remain until naming is addressed as a separate cleanup.
 
-## Target pipeline
+## Pipeline
 
 ```text
 JSON scenario
@@ -65,9 +67,10 @@ return a `HandlerResult`.
 
 For example, the engine can require `title`, `program`, `args`, and `handler`,
 while the `equals` handler should decide whether its `expected` field is valid.
-The prototype can already discover handler files, load their modules dynamically,
-locate concrete `BaseHandler` implementations, and build a handler registry.
-Handler validation and runtime dispatch are not connected to scenarios yet.
+The prototype discovers and loads Python modules from `handlers/`, locates
+concrete `BaseHandler` implementations, and builds a handler registry. The
+selected handler validates its operation configuration and evaluates the
+result at runtime.
 
 **Interpreters** are a later, optional layer for normalizing complex,
 tool-specific output before a handler evaluates it. An interpreter understands
@@ -92,50 +95,37 @@ rather than anticipate every possible workflow.
 Implemented or started:
 
 - JSON mode discovery, loading, and common structural validation
-- subprocess execution with captured stdout, stderr, and return code
-- `OperationResult` and `HandlerResult` data models
-- an abstract `BaseHandler` API and an `EqualsHandler` skeleton
-- handler-file discovery and recoverable dynamic module loading
-- concrete `BaseHandler` class discovery and handler registry construction
-- collection of errors from invalid or incomplete handler modules
+- handler-file discovery, recoverable dynamic module loading, and registry
+  construction from concrete `BaseHandler` implementations
+- registry-backed handler lookup during scenario validation
+- handler-specific configuration validation delegated to the selected handler
+- subprocess execution with captured stdout, stderr, return code, and a
+  ten-second timeout
+- separate `Operation`, `OperationResult`, and `HandlerResult` data models
+- runtime dispatch of operation results to dynamically selected handlers
+- a working `EqualsHandler` that evaluates stdout and returns `HandlerResult`
+- basic terminal presentation of handler success or failure and actual output
 - the original diagnostic CLI and Ubuntu-oriented example modes
-- pytest tests for validation, mode preparation, and CLI parsing
+- pytest tests for handler loading and registry construction, handler
+  evaluation, mode preparation, and CLI parsing
 
-The current runtime still follows this shorter path:
-
-```text
-JSON mode → Udiag CLI → subprocess → selected program → raw output
-```
-
-The terminal currently displays stdout and the return code; captured stderr is
-not presented.
-
-The missing connection is:
+The first end-to-end milestone is now working:
 
 ```text
-handler registry
-    → use the selected handler during scenario validation
-    → call handler.validate_config(...)
-    → execute and create OperationResult
-    → call handler.evaluate(...)
-    → return HandlerResult
-```
-
-The first milestone is one complete end-to-end flow:
-
-```text
-one JSON scenario
-    → one operation
-    → dynamically discovered "equals" handler
-    → handler-specific validation
-    → execution
+JSON scenario
+    → common structural validation
+    → registry lookup and handler.validate_config(...)
+    → operation execution
     → OperationResult
     → handler.evaluate(...)
     → HandlerResult
+    → terminal presentation
 ```
 
-Additional handlers, interpreters, and larger architectural changes should come
-after this flow works.
+The terminal currently shows an `OK` or `FAIL` result together with the actual
+value produced by the handler. Captured stderr, the return code, and richer
+diagnostic context are not presented yet. Additional handlers, interpreters,
+and larger architectural changes should follow concrete MVP needs.
 
 ## Requirements
 
@@ -149,12 +139,13 @@ The runtime currently uses only the Python standard library.
 
 - `udiag.py` — current diagnostic CLI and operation execution
 - `mode_manager.py` — JSON mode discovery, loading, and structural validation
-- `handler_manager.py` — handler discovery, dynamic loading, class validation, and registry construction
+- `handler_manager.py` — handler discovery, dynamic module loading, class
+  validation, and registry construction
 - `structure.py` — typed configuration structures and result models
 - `terminal.py` — current terminal presentation
 - `modes/` — Ubuntu-oriented JSON scenarios
-- `handlers/` — `BaseHandler`, the `EqualsHandler` skeleton, and placeholders
-- `tests/` — validation, mode-preparation, and CLI tests
+- `handlers/` — `BaseHandler`, the working `EqualsHandler`, and placeholders
+- `tests/` — handler, validation, mode-preparation, and CLI tests
 
 These names reflect the current prototype. Separating the engine from Udiag does
 not require renaming every module in the same change.
@@ -174,12 +165,13 @@ python3 udiag.py show system
 python3 udiag.py run base
 python3 udiag.py run system
 
-# Show mode-configuration errors
+# Show collected configuration and handler errors
 python3 udiag.py --errors
 ```
 
-`run` currently executes operations and displays raw results. Handler evaluation
-is not connected to execution yet.
+`run` validates each operation through its selected handler, executes the
+program, evaluates the resulting `OperationResult`, and displays the resulting
+`HandlerResult` as `OK` or `FAIL` with its actual value.
 
 ## JSON scenario format
 
@@ -203,9 +195,10 @@ ordered list of operations:
 ```
 
 Common operation fields are `title`, `program`, `args`, and `handler`.
-Handler-specific fields should be validated by the selected handler; in this
-example, `expected` belongs to `equals`. The prototype still performs some of
-this validation centrally while the handler pipeline is being connected.
+Common fields are validated by the mode manager, while handler-specific fields
+are validated by the selected handler. In this example, `expected` belongs to
+`equals`. An operation is accepted only when its common structure is valid, its
+handler exists in the registry, and the handler accepts its configuration.
 
 Programs are started from an argument list with `shell=False`; scenarios do not
 contain shell command strings.
@@ -216,9 +209,11 @@ contain shell command strings.
 python3 -m pytest
 ```
 
-The current tests cover mode and operation validation, preparation of valid
-modes, and CLI parsing. Handler loading and the complete evaluation pipeline
-need further coverage as they are connected.
+The current tests cover handler discovery, dynamic loading and registry
+construction, `EqualsHandler` evaluation, mode and operation validation,
+registry-backed handler configuration checks, preparation of valid modes, and
+CLI parsing. A full subprocess-to-terminal integration test is still to be
+added.
 
 ## Security
 
@@ -229,11 +224,11 @@ yet.
 
 ## Next steps
 
-1. connect the handler registry to scenario validation
-2. delegate handler-specific configuration validation to the selected handler
-3. complete `EqualsHandler.evaluate()`
-4. connect `OperationResult` to handler evaluation and produce `HandlerResult`
-5. test the first complete end-to-end pipeline
+1. improve the `base` scenario into a useful MVP diagnostic
+2. improve presentation of `HandlerResult` and relevant execution details
+3. separate handler-loading, scenario-validation, and runtime errors clearly
+4. turn subprocess timeouts and execution failures into normal operation results
+5. add final end-to-end coverage for execution and terminal presentation
 6. separate the neutral engine from Udiag diagnostics incrementally
 
 ## License

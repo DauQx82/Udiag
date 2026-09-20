@@ -9,12 +9,14 @@ class OperationDict(TypedDict):
     program: str
     args: list[str]
     handler: str
-    expected: NotRequired[str]
+    expected: NotRequired[str] # Do wywalenia po MVP
+
 
 class ModeDict(TypedDict):
     name: str
     description: str
     operations: list[OperationDict]
+
 
 @dataclass
 class Operation:
@@ -22,9 +24,6 @@ class Operation:
     program: str
     args: list[str]
 
-    stdout: str = ""
-    stderr: str = ""
-    returncode: int | None = None
 
 @dataclass
 class OperationResult:
@@ -32,11 +31,13 @@ class OperationResult:
     stderr: str
     returncode: int
 
+
 @dataclass
 class HandlerResult:
     success: bool
-    actual: str
-    expected: str| int | None
+    actual: str | int
+    expected: str | int | None
+
 
 def create_operation(operation_data: OperationDict) -> Operation:
     operation = Operation(

@@ -3,7 +3,7 @@
 
 import pytest
 import json
-
+from pathlib import Path
 # README!
 # type: ignore[arg-type] ← I use this construct so that Pylance doesn't report a type error.
 # This helps with further work because I can immediately see actual errors.
@@ -12,6 +12,152 @@ from mode_manager import (find_mode_files,
                           validate_mode_structure,
                           validate_operation_structure,
                           prepare_modes)
+
+from handlers.equals import EqualsHandler
+
+
+def test_prepare_modes_accepts_valid_handler_config(
+    tmp_path: Path,
+) -> None:
+    mode_file = tmp_path / "valid.json"
+    mode_file.write_text(
+        json.dumps(
+            {
+                "name": "base",
+                "description": "Basic diagnostic",
+                "operations": [
+                    {
+                        "title": "System state",
+                        "program": "systemctl",
+                        "args": ["is-system-running"],
+                        "handler": "equals",
+                        "expected": "running",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    registry = {
+        "equals": EqualsHandler,
+    }
+
+    valid_modes, errors = prepare_modes(
+        [mode_file],
+        registry,
+    )
+
+    assert len(valid_modes) == 1
+    assert valid_modes[0]["name"] == "base"
+    assert errors == []
+
+
+def test_prepare_modes_rejects_unknown_handler(
+    tmp_path: Path,
+) -> None:
+    mode_file = tmp_path / "unknown_handler.json"
+    mode_file.write_text(
+        json.dumps(
+            {
+                "name": "base",
+                "description": "Basic diagnostic",
+                "operations": [
+                    {
+                        "title": "System state",
+                        "program": "systemctl",
+                        "args": ["is-system-running"],
+                        "handler": "does-not-exist",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    registry = {
+        "equals": EqualsHandler,
+    }
+
+    valid_modes, errors = prepare_modes(
+        [mode_file],
+        registry,
+    )
+
+    assert valid_modes == []
+    assert len(errors) == 1
+    assert "failed handler validation" in errors[0]
+
+
+def test_prepare_modes_rejects_invalid_handler_config(
+    tmp_path: Path,
+) -> None:
+    mode_file = tmp_path / "invalid_config.json"
+    mode_file.write_text(
+        json.dumps(
+            {
+                "name": "base",
+                "description": "Basic diagnostic",
+                "operations": [
+                    {
+                        "title": "System state",
+                        "program": "systemctl",
+                        "args": ["is-system-running"],
+                        "handler": "equals",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    registry = {
+        "equals": EqualsHandler,
+    }
+
+    valid_modes, errors = prepare_modes(
+        [mode_file],
+        registry,
+    )
+
+    assert valid_modes == []
+    assert len(errors) == 1
+    assert "failed handler validation" in errors[0]
+
+
+def test_prepare_modes_does_not_validate_handler_after_structure_failure(
+    tmp_path: Path,
+) -> None:
+    mode_file = tmp_path / "invalid_structure.json"
+    mode_file.write_text(
+        json.dumps(
+            {
+                "name": "base",
+                "description": "Basic diagnostic",
+                "operations": [
+                    {
+                        "title": "Broken operation",
+                        "program": "systemctl",
+                        "args": ["is-system-running"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    registry = {
+        "equals": EqualsHandler,
+    }
+
+    valid_modes, errors = prepare_modes(
+        [mode_file],
+        registry,
+    )
+
+    assert valid_modes == []
+    assert len(errors) == 1
+    assert "invalid structure" in errors[0]
 
 def test_scan_config():
     test_list = find_mode_files()
@@ -136,32 +282,7 @@ def test_validate_mode_structure(mode):
             "args": ["is-system-running"],
             "handler": 42,
             "expected": "running"
-        },
-
-        # Equals without expected
-        {
-            "title": "System state",
-            "program": "systemctl",
-            "args": ["is-system-running"],
-            "handler": "equals"
-        },
-
-        # Contains without expected
-        {
-            "title": "System state",
-            "program": "systemctl",
-            "args": ["is-system-running"],
-            "handler": "contains"
-        },
-
-        # Expected is not str
-        {
-            "title": "System state",
-            "program": "systemctl",
-            "args": ["is-system-running"],
-            "handler": "equals",
-            "expected": 42
-        },
+        }
     ]
 )
 def test_invalid_operations(operation):
@@ -262,7 +383,7 @@ def test_prepare_modes(tmp_path):
                     "title": "",
                     "program": "",
                     "args": [],
-                    "handler": "",
+                    "handler": "equals",
                     "expected": ""
                 }
             ]
@@ -293,10 +414,26 @@ def test_prepare_modes(tmp_path):
                     "expected": "running"
                 }
             ]
-        }
+        },
+        {
+            "name": "invalid_test_4", 
+            "description": "",
+            "operations": [
+                {
+                    "title": "",
+                    "program": "",
+                    "args": [],
+                    "handler": "",
+                    "expected": ""
+                }
+            ]
+        },
     ]
 
     mode_files = []
+    registry = {
+        "equals": EqualsHandler,
+    }
 
     for i, mode in enumerate(test_modes):
         file = tmp_path / f"mode_{i}.json"
@@ -308,7 +445,7 @@ def test_prepare_modes(tmp_path):
 
         mode_files.append(file)
 
-    valid_modes, errors = prepare_modes(mode_files)
+    valid_modes, errors = prepare_modes(mode_files, registry)
 
     assert len(valid_modes) == 2
-    assert len(errors) == 3
+    assert len(errors) == 4

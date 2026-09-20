@@ -3,9 +3,10 @@
 
 import json
 from pathlib import Path
+from collections.abc import Mapping
 
 from structure import ModeDict, OperationDict
-# TODO: Connect handler validation after the handler registry is ready.
+from handlers.handler import BaseHandler
 
 BASE_DIR = Path(__file__).resolve().parent
 MODE_DIR = BASE_DIR / "modes"
@@ -14,10 +15,12 @@ def find_mode_files() -> list[Path]:
     """Scans path for modes. Returns Path obj."""
     return list(MODE_DIR.glob("*.json"))
 
+
 def load_mode(file: Path) -> ModeDict:
     """Loading configuration details. Returns dict[ModeDict]"""
     with file.open("r", encoding="utf-8") as f:
         return json.load(f)
+
 
 def validate_mode_structure(mode_file: ModeDict) -> bool:
     """Checks whether the dictionary contains the required diagnostic keys and whether their values ​​have the correct types."""
@@ -39,17 +42,15 @@ def validate_mode_structure(mode_file: ModeDict) -> bool:
 
     return True
 
+
 def validate_operation_structure(operation: OperationDict) -> bool:
     """Checks the operation structure."""
-    # TODO: Move handler-specific validation out of this function as the handler system develops.
     expected_structure: dict[str, type] = {
         "title": str,
         "program": str,
         "args": list,
         "handler": str,
     }
-
-    handlers_with_expected: set[str] = {"equals", "contains"}
 
     for key, expected_type in expected_structure.items():
         if key not in operation:
@@ -58,19 +59,25 @@ def validate_operation_structure(operation: OperationDict) -> bool:
         if not isinstance(operation[key], expected_type):
             return False
 
-    if operation["handler"] in handlers_with_expected:
-        if "expected" not in operation:
-            return False
-
-        if not isinstance(operation["expected"], str):
-            return False
-        
     if not all(isinstance(arg, str) for arg in operation["args"]):
         return False
 
     return True
 
-def prepare_modes(mode_files: list[Path]) -> tuple[list[ModeDict], list[str]]:
+
+def validate_operation_handler(operation: OperationDict,
+                               registry: Mapping[str, type[BaseHandler]]) -> bool:
+    handler_name = operation["handler"]
+
+    if handler_name not in registry:
+        return False
+
+    handler_class = registry[handler_name]
+    return handler_class.validate_config(operation)
+
+
+def prepare_modes(mode_files: list[Path],
+                  registry: Mapping[str, type[BaseHandler]]) -> tuple[list[ModeDict], list[str]]:
     """Checks JSON, mode structure and operation structures."""
     valid_modes:list[ModeDict] = []
     errors:list[str] = []
@@ -99,6 +106,15 @@ def prepare_modes(mode_files: list[Path]) -> tuple[list[ModeDict], list[str]]:
                 operation_name = operation.get("title", "<unknown operation>")
                 errors.append(
                     f"Operation: {operation_name} has invalid structure"
+                )
+                continue
+
+            if not validate_operation_handler(operation, registry):
+                operations_valid = False
+
+                operation_name = operation["title"]
+                errors.append(
+                    f"Operation: {operation_name} failed handler validation"
                 )
 
         if operations_valid:

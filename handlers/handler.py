@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from abc import ABC, abstractmethod
-from structure import OperationResult, HandlerResult
+from structure import OperationDict, OperationResult, HandlerResult
 
 class BaseHandler(ABC):
     def __init__(self,
@@ -13,7 +13,7 @@ class BaseHandler(ABC):
 
     @classmethod
     @abstractmethod
-    def validate_config(cls, operation) -> bool:
+    def validate_config(cls, operation: OperationDict) -> bool:
         pass
 
     @abstractmethod

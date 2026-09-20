@@ -20,7 +20,7 @@ from handler_manager import (
 )
 from handlers.handler import BaseHandler
 from terminal import present_terminal, terminal_title
-
+from state import errors
 
 def get_mode_names(modes: list[ModeDict]) -> list[str]:
     """Prepares a list of arguments for each specific mode."""
@@ -76,23 +76,35 @@ def build_parser(valid_modes: list[ModeDict]) -> argparse.ArgumentParser:
     return parser
 
 
-def print_mode_warning(errors: list[str]) -> None:
-    if errors:
+def print_mode_warning() -> None: # TODO
+    if errors.count > 0:
         print()
-        print(f"{len(errors)} Errors")
+        print(f"{errors.count} Errors")
         print("For details, run udiag.py -e, --errors" + "\n")
 
 
-def print_mode_errors(errors: list[str]) -> None:
-    if errors:
-        print(f"{len(errors)} Errors\n")
+def print_mode_errors() -> None: # TODO
+    if errors.handler:
+        print(f"Number of handler errors: {len(errors.handler)}")
         print("Details:" + "\n")
 
-        for i, error in enumerate(errors, start=1):
+        for i, error in enumerate(errors.handler, start=1):
+            print(f"{i}. {error}")
+
+        print()
+        print("#" * 30)
+        if not errors.mode:
+            return
+        print()
+
+    if errors.mode:
+        print(f"Number of mode errors: {len(errors.mode)}")
+        print("Details:" + "\n")
+
+        for i, error in enumerate(errors.mode, start=1):
             print(f"{i}. {error}")
 
         return
-
     print("No errors.")
 
 
@@ -112,18 +124,17 @@ def execute_operation(operation: Operation) -> OperationResult:
 
 def main(args,
          registry: dict[str, type[BaseHandler]],
-         valid_modes: list[ModeDict],
-         errors: list[str]) -> None:
-    # Errors
+         valid_modes: list[ModeDict]) -> None:
+    # Errors FIXME
     if args.mode_errors:
-        print_mode_errors(errors)
+        print_mode_errors()
         return
     
     # Run
     if args.command == "run":
         for mode in valid_modes:
             if args.mode == mode["name"]:
-                print_mode_warning(errors)
+                print_mode_warning()
                 print()
 
                 terminal_title(mode)
@@ -151,7 +162,7 @@ def main(args,
     if args.command == "show":
         for mode in valid_modes:
             if args.mode == mode["name"]:
-                print_mode_warning(errors)
+                print_mode_warning()
                 print()
 
                 print(f"Mode: {mode["name"]}")
@@ -174,13 +185,15 @@ if __name__ == "__main__":
 
     handler_map = build_handler_map(handlers)
     registry, handler_errors = build_handler_registry(handler_map)
+    errors.handler = handler_errors
 
     if not registry:
         print("No valid handlers available.")
         sys.exit(1)
 
     mode_files = find_mode_files()
-    valid_modes, errors = prepare_modes(mode_files, registry)
+    valid_modes, mode_errors = prepare_modes(mode_files, registry)
+    errors.mode = mode_errors
 
     parser = build_parser(valid_modes)
     args = parser.parse_args()
@@ -189,5 +202,4 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(0)
 
-    errors.extend(handler_errors)
-    main(args,registry, valid_modes, errors)
+    main(args,registry, valid_modes) # FIXME Teraz mam dataclass, to nie muszę tego przekazywać.

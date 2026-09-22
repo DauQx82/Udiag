@@ -175,6 +175,9 @@ python3 udiag.py show base
 # Run the currently valid mode
 python3 udiag.py run base
 
+# Run the currently valid mode with details
+python3 udiag.py run base --details
+
 # Show collected configuration and handler errors
 python3 udiag.py --errors
 ```

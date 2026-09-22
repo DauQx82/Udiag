@@ -19,7 +19,7 @@ from handler_manager import (
     build_handler_registry,
 )
 from handlers.handler import BaseHandler
-from terminal import present_terminal, terminal_title
+from terminal import terminal_title, present_list
 from state import errors
 
 def get_mode_names(modes: list[ModeDict]) -> list[str]:
@@ -62,6 +62,10 @@ def build_parser(valid_modes: list[ModeDict]) -> argparse.ArgumentParser:
         choices=mode_names
     )
 
+    run_parser.add_argument(
+        "--details",
+        action="store_true"
+    )
     # Show
     show_parser = subparsers.add_parser(
         "show",
@@ -137,7 +141,7 @@ def main(args,
                 print_mode_warning()
                 print()
 
-                terminal_title(mode)
+                terminal_title(mode, args.details)
 
                 for i, operation_data in enumerate(
                     mode["operations"],
@@ -163,7 +167,7 @@ def main(args,
 
                         handler_result = handler.evaluate()
                         outcome = (True, handler_result)
-                    present_terminal(i, operation_data, outcome)
+                    present_list(i, operation_data, outcome, args.details)
 
                 print("# End.")
 

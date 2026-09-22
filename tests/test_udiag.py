@@ -6,7 +6,6 @@ from argparse import Namespace
 import pytest
 
 import udiag
-from structure import OperationDict, OperationOutcome
 from handlers.handler import BaseHandler
 from handlers.equals import EqualsHandler
 from structure import (
@@ -83,6 +82,21 @@ def test_parser_errors():
     assert args.mode_errors is True
 
 
+def test_parser_run_with_details():
+    modes = [
+        {
+            "name": "base",
+            "description": "Basic",
+            "operations": [],
+        }
+    ]
+
+    parser = udiag.build_parser(modes)  # type: ignore[arg-type]
+    args = parser.parse_args(["run", "base", "--details"])
+
+    assert args.details is True
+
+
 @pytest.mark.parametrize(
     "error",
     [
@@ -102,6 +116,7 @@ def test_main_converts_execution_failure_to_error_outcome(
         mode_errors=False,
         command="run",
         mode="test",
+        details=False,
     )
 
     modes = [
@@ -127,7 +142,12 @@ def test_main_converts_execution_failure_to_error_outcome(
     def raise_execution_error(operation) -> None:
         raise error
 
-    def capture_result(i, operation_data, outcome) -> None:
+    def capture_result(
+        i: int,
+        operation_data: OperationDict,
+        outcome: OperationOutcome,
+        with_details: bool = False,
+    ) -> None:
         presented.append((i, operation_data, outcome))
 
     monkeypatch.setattr(
@@ -137,13 +157,13 @@ def test_main_converts_execution_failure_to_error_outcome(
     )
     monkeypatch.setattr(
         udiag,
-        "present_terminal",
+        "present_list",
         capture_result,
     )
     monkeypatch.setattr(
         udiag,
         "terminal_title",
-        lambda mode: None,
+        lambda mode, with_details=False: None,
     )
     monkeypatch.setattr(
         udiag,
@@ -170,6 +190,7 @@ def test_main_does_not_hide_unexpected_exception(
         mode_errors=False,
         command="run",
         mode="test",
+        details=False,
     )
 
     modes = [
@@ -199,7 +220,7 @@ def test_main_does_not_hide_unexpected_exception(
     monkeypatch.setattr(
         udiag,
         "terminal_title",
-        lambda mode: None,
+        lambda mode, with_details=False: None
     )
     monkeypatch.setattr(
         udiag,
@@ -218,6 +239,7 @@ def test_main_converts_successful_execution_to_handler_outcome(
         mode_errors=False,
         command="run",
         mode="test",
+        details=False,
     )
 
     modes: list[ModeDict] = [
@@ -255,6 +277,7 @@ def test_main_converts_successful_execution_to_handler_outcome(
         i: int,
         operation_data: OperationDict,
         outcome: OperationOutcome,
+        with_details: bool = False,
     ) -> None:
         presented.append((i, operation_data, outcome))
 
@@ -265,13 +288,13 @@ def test_main_converts_successful_execution_to_handler_outcome(
     )
     monkeypatch.setattr(
         udiag,
-        "present_terminal",
+        "present_list",
         capture_result,
     )
     monkeypatch.setattr(
         udiag,
         "terminal_title",
-        lambda mode: None,
+        lambda mode, with_details=False: None
     )
     monkeypatch.setattr(
         udiag,

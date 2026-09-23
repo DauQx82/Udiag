@@ -288,21 +288,39 @@ def test_validate_mode_structure(mode):
 def test_invalid_operations(operation):
     assert validate_operation_structure(operation) is False  # type: ignore[arg-type]
 
+
 @pytest.mark.parametrize(
-        "mode",
-        [{
+    "mode",
+    [
+        {
             "name": "example",
             "description": "example",
-            "operations": [{}]
+            "operations": [{}],
         },
         {
             "name": "test-mode",
             "description": "Testing mode",
-            "operations": []
-        }]
-        )
-def test_mode_is_valid(mode):
+            "operations": [
+                {
+                    "some": "raw operation"
+                }
+            ],
+        },
+    ],
+)
+def test_mode_is_valid(mode: dict) -> None:
     assert validate_mode_structure(mode) is True
+
+
+def test_mode_with_empty_operations_is_invalid() -> None:
+    mode = {
+        "name": "test-mode",
+        "description": "Testing mode",
+        "operations": [],
+    }
+
+    assert validate_mode_structure(mode) is False
+
 
 @pytest.mark.parametrize(
         "operation",
@@ -381,7 +399,7 @@ def test_prepare_modes(tmp_path):
             "operations": [
                 {
                     "title": "",
-                    "program": "",
+                    "program": "program",
                     "args": [],
                     "handler": "equals",
                     "expected": ""

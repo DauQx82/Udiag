@@ -4,6 +4,7 @@
 import json
 from pathlib import Path
 from collections.abc import Mapping
+from typing import cast
 
 from structure import ModeDict, OperationDict
 from handlers.handler import BaseHandler
@@ -16,13 +17,13 @@ def find_mode_files() -> list[Path]:
     return list(MODE_DIR.glob("*.json"))
 
 
-def load_mode(file: Path) -> ModeDict:
-    """Loading configuration details. Returns dict[ModeDict]"""
+def load_mode(file: Path) -> object:
+    """Loading configuration details. Returns object"""
     with file.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def validate_mode_structure(mode_file: ModeDict) -> bool:
+def validate_mode_structure(mode_file: dict) -> bool:
     """Checks whether the dictionary contains the required diagnostic keys and whether their values ​​have the correct types."""
     expected_structure: dict[str, type] = {
         "name": str,
@@ -36,6 +37,9 @@ def validate_mode_structure(mode_file: ModeDict) -> bool:
         
         if not isinstance(mode_file[key], expected_type):
             return False
+        
+    if not mode_file["operations"]:
+        return False
 
     if not all(isinstance(operation, dict) for operation in mode_file["operations"]):
         return False
@@ -43,7 +47,7 @@ def validate_mode_structure(mode_file: ModeDict) -> bool:
     return True
 
 
-def validate_operation_structure(operation: OperationDict) -> bool:
+def validate_operation_structure(operation: dict) -> bool:
     """Checks the operation structure."""
     expected_structure: dict[str, type] = {
         "title": str,
@@ -58,6 +62,9 @@ def validate_operation_structure(operation: OperationDict) -> bool:
 
         if not isinstance(operation[key], expected_type):
             return False
+
+    if not operation["program"].strip():
+        return False
 
     if not all(isinstance(arg, str) for arg in operation["args"]):
         return False
@@ -84,7 +91,7 @@ def prepare_modes(mode_files: list[Path],
 
     for mode in mode_files:
         try:
-            loaded_mode = load_mode(mode)
+            loaded_json = load_mode(mode)
         except json.JSONDecodeError:
             message = (
                 f"Mode: {mode} JSONDecodeError return Err\n"
@@ -93,13 +100,17 @@ def prepare_modes(mode_files: list[Path],
             errors.append(message)
             continue
 
-        if not validate_mode_structure(loaded_mode):
+        if not isinstance(loaded_json, dict):
+            errors.append("mode is not dict type, or something.")
+            continue
+
+        if not validate_mode_structure(loaded_json):
             errors.append(f"Mode: {mode} has invalid structure")
             continue
 
         operations_valid = True
 
-        for operation in loaded_mode["operations"]:
+        for operation in loaded_json["operations"]:
             if not validate_operation_structure(operation):
                 operations_valid = False
 
@@ -109,7 +120,9 @@ def prepare_modes(mode_files: list[Path],
                 )
                 continue
 
-            if not validate_operation_handler(operation, registry):
+            operation_dict = cast(OperationDict, operation)
+
+            if not validate_operation_handler(operation_dict, registry):
                 operations_valid = False
 
                 operation_name = operation["title"]
@@ -118,6 +131,7 @@ def prepare_modes(mode_files: list[Path],
                 )
 
         if operations_valid:
-            valid_modes.append(loaded_mode)
+            mode_dict = cast(ModeDict, loaded_json)
+            valid_modes.append(mode_dict)
 
     return valid_modes, errors

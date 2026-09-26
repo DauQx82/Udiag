@@ -8,8 +8,14 @@
 			"program": "systemctl",
 			"args": ["is-system-running"],
 
-			"handler": "equals",
-			"expected": "running"
+			"checks": {
+				"stdout": {
+					"equals": "running"
+				},
+				"returncode": {
+					"equals": 0
+				}
+			}
 		}
 	]
 }

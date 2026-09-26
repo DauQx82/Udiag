@@ -10,11 +10,14 @@ class EqualsHandler(BaseHandler):
         super().__init__(result, expected)
 
     @classmethod
-    def validate_config(cls, operation) -> bool:
-        if "expected" not in operation:
+    def validate_config(cls, config) -> bool:
+        if not isinstance(config, dict):
             return False
 
-        if not isinstance(operation["expected"], str):
+        if "expected" not in config:
+            return False
+
+        if not isinstance(config["expected"], str):
             return False
         
         return True

@@ -1,292 +1,111 @@
 # Copyright (C) 2026 DauQx82
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import pytest
 import json
 from pathlib import Path
-# README!
-# type: ignore[arg-type] ← I use this construct so that Pylance doesn't report a type error.
-# This helps with further work because I can immediately see actual errors.
+from typing import cast
 
-from mode_manager import (find_mode_files,
-                          validate_mode_structure,
-                          validate_operation_structure,
-                          prepare_modes)
+import pytest
 
-from handlers.equals import EqualsHandler
-
-
-def test_prepare_modes_accepts_valid_handler_config(
-    tmp_path: Path,
-) -> None:
-    mode_file = tmp_path / "valid.json"
-    mode_file.write_text(
-        json.dumps(
-            {
-                "name": "base",
-                "description": "Basic diagnostic",
-                "operations": [
-                    {
-                        "title": "System state",
-                        "program": "systemctl",
-                        "args": ["is-system-running"],
-                        "handler": "equals",
-                        "expected": "running",
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    registry = {
-        "equals": EqualsHandler,
-    }
-
-    valid_modes, errors = prepare_modes(
-        [mode_file],
-        registry,
-    )
-
-    assert len(valid_modes) == 1
-    assert valid_modes[0]["name"] == "base"
-    assert errors == []
-
-
-def test_prepare_modes_rejects_unknown_handler(
-    tmp_path: Path,
-) -> None:
-    mode_file = tmp_path / "unknown_handler.json"
-    mode_file.write_text(
-        json.dumps(
-            {
-                "name": "base",
-                "description": "Basic diagnostic",
-                "operations": [
-                    {
-                        "title": "System state",
-                        "program": "systemctl",
-                        "args": ["is-system-running"],
-                        "handler": "does-not-exist",
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    registry = {
-        "equals": EqualsHandler,
-    }
-
-    valid_modes, errors = prepare_modes(
-        [mode_file],
-        registry,
-    )
-
-    assert valid_modes == []
-    assert len(errors) == 1
-    assert "failed handler validation" in errors[0]
-
-
-def test_prepare_modes_rejects_invalid_handler_config(
-    tmp_path: Path,
-) -> None:
-    mode_file = tmp_path / "invalid_config.json"
-    mode_file.write_text(
-        json.dumps(
-            {
-                "name": "base",
-                "description": "Basic diagnostic",
-                "operations": [
-                    {
-                        "title": "System state",
-                        "program": "systemctl",
-                        "args": ["is-system-running"],
-                        "handler": "equals",
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    registry = {
-        "equals": EqualsHandler,
-    }
-
-    valid_modes, errors = prepare_modes(
-        [mode_file],
-        registry,
-    )
-
-    assert valid_modes == []
-    assert len(errors) == 1
-    assert "failed handler validation" in errors[0]
-
-
-def test_prepare_modes_does_not_validate_handler_after_structure_failure(
-    tmp_path: Path,
-) -> None:
-    mode_file = tmp_path / "invalid_structure.json"
-    mode_file.write_text(
-        json.dumps(
-            {
-                "name": "base",
-                "description": "Basic diagnostic",
-                "operations": [
-                    {
-                        "title": "Broken operation",
-                        "program": "systemctl",
-                        "args": ["is-system-running"],
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    registry = {
-        "equals": EqualsHandler,
-    }
-
-    valid_modes, errors = prepare_modes(
-        [mode_file],
-        registry,
-    )
-
-    assert valid_modes == []
-    assert len(errors) == 1
-    assert "invalid structure" in errors[0]
-
-def test_scan_config():
-    test_list = find_mode_files()
-    assert test_list != []
-
-@pytest.mark.parametrize(
-        "mode",
-        [
-            # No name
-            {
-                "description":"Missing name",
-                "operations":[]
-            },
-            # mode_name_is_not_str
-            {
-                "name":42,
-                "description":"Name is not a string",
-                "operations":[]
-            },
-            # no_description
-            {
-                "name":"missing-description",
-                "operations":[]
-            },
-            # no_operations
-            {
-                "name":"missing-operations",
-                "description":"Operations field is missing"
-            },
-            # operations_is_not_list
-            {
-                "name":"operations-not-list",
-                "description":"Operations is an object",
-                "operations":{}
-            },
-            # operations_is_not_object
-            {
-                "name":"operation-not-object",
-                "description":"Operation is a string",
-                "operations":["not-an-object"]
-            }
-        ]
+from handlers.handler import BaseHandler
+from mode_manager import (
+    CheckSkeleton,
+    find_mode_files,
+    prepare_modes,
+    validate_checks,
+    validate_checks_structure,
+    validate_mode_structure,
+    validate_operation_structure,
 )
-def test_validate_mode_structure(mode):
-    assert validate_mode_structure(mode) is False #type: ignore[arg-type]
+
+
+class AcceptHandler:
+    """Minimal test double that accepts every configuration."""
+
+    @classmethod
+    def validate_config(cls, config: object) -> bool:
+        return True
+
+
+class StringHandler:
+    """Minimal test double that accepts only string configuration."""
+
+    @classmethod
+    def validate_config(cls, config: object) -> bool:
+        return isinstance(config, str)
+
+
+def build_registry() -> dict[str, type[BaseHandler]]:
+    """Builds a small handler registry used by mode-manager tests."""
+    return {
+        "accept": cast(type[BaseHandler], AcceptHandler),
+        "string": cast(type[BaseHandler], StringHandler),
+    }
+
+
+def write_mode(
+    tmp_path: Path,
+    filename: str,
+    data: object,
+) -> Path:
+    """Writes JSON test data and returns its path."""
+    mode_file = tmp_path / filename
+    mode_file.write_text(
+        json.dumps(data),
+        encoding="utf-8",
+    )
+    return mode_file
+
+
+def test_find_mode_files_returns_modes() -> None:
+    mode_files = find_mode_files()
+    assert mode_files != []
+
 
 @pytest.mark.parametrize(
-    "operation",
+    "mode",
     [
-        # Missing title
         {
-            "program": "systemctl",
-            "args": ["is-system-running"],
-            "handler": "equals",
-            "expected": "running"
+            "description": "Missing name",
+            "operations": [{}],
         },
-
-        # Title is not str
         {
-            "title": 42,
-            "program": "systemctl",
-            "args": ["is-system-running"],
-            "handler": "equals",
-            "expected": "running"
+            "name": 42,
+            "description": "Name is not a string",
+            "operations": [{}],
         },
-
-        # Missing program
         {
-            "title": "System state",
-            "args": ["is-system-running"],
-            "handler": "equals",
-            "expected": "running"
+            "name": "missing-description",
+            "operations": [{}],
         },
-
-        # Program is not str
         {
-            "title": "System state",
-            "program": 42,
-            "args": ["is-system-running"],
-            "handler": "equals",
-            "expected": "running"
+            "name": "missing-operations",
+            "description": "Operations field is missing",
         },
-
-        # Missing args
         {
-            "title": "System state",
-            "program": "systemctl",
-            "handler": "equals",
-            "expected": "running"
+            "name": "operations-not-list",
+            "description": "Operations is an object",
+            "operations": {},
         },
-
-        # Args is not list
         {
-            "title": "System state",
-            "program": "systemctl",
-            "args": "is-system-running",
-            "handler": "equals",
-            "expected": "running"
+            "name": "operation-not-object",
+            "description": "Operation is a string",
+            "operations": ["not-an-object"],
         },
-
-        # Args contains non-string
         {
-            "title": "System state",
-            "program": "systemctl",
-            "args": ["is-system-running", 42],
-            "handler": "equals",
-            "expected": "running"
+            "name": "empty-operations",
+            "description": "Operations list is empty",
+            "operations": [],
         },
-
-        # Missing handler
-        {
-            "title": "System state",
-            "program": "systemctl",
-            "args": ["is-system-running"],
-            "expected": "running"
-        },
-
-        # Handler is not str
-        {
-            "title": "System state",
-            "program": "systemctl",
-            "args": ["is-system-running"],
-            "handler": 42,
-            "expected": "running"
-        }
-    ]
+    ],
 )
-def test_invalid_operations(operation):
-    assert validate_operation_structure(operation) is False  # type: ignore[arg-type]
+def test_validate_mode_structure_rejects_invalid_modes(
+    mode: dict,
+) -> None:
+    result = validate_mode_structure(mode)
+
+    assert result[0] is False
+    assert result[1]
 
 
 @pytest.mark.parametrize(
@@ -294,7 +113,7 @@ def test_invalid_operations(operation):
     [
         {
             "name": "example",
-            "description": "example",
+            "description": "Example",
             "operations": [{}],
         },
         {
@@ -302,168 +121,527 @@ def test_invalid_operations(operation):
             "description": "Testing mode",
             "operations": [
                 {
-                    "some": "raw operation"
+                    "some": "raw operation",
                 }
             ],
         },
     ],
 )
-def test_mode_is_valid(mode: dict) -> None:
-    assert validate_mode_structure(mode) is True
+def test_validate_mode_structure_returns_mode_skeleton(
+    mode: dict,
+) -> None:
+    result = validate_mode_structure(mode)
 
+    assert result[0] is True
 
-def test_mode_with_empty_operations_is_invalid() -> None:
-    mode = {
-        "name": "test-mode",
-        "description": "Testing mode",
-        "operations": [],
-    }
+    mode_skeleton = result[1]
 
-    assert validate_mode_structure(mode) is False
+    assert mode_skeleton["name"] == mode["name"]
+    assert mode_skeleton["description"] == mode["description"]
+    assert mode_skeleton["operations"] == mode["operations"]
 
 
 @pytest.mark.parametrize(
-        "operation",
-        [
-            {
-                "title": "System information",
-                "program": "hostnamectl",
-                "args": [],
-                
-                "handler": "information"
+    "operation",
+    [
+        # Missing title.
+        {
+            "program": "systemctl",
+            "args": ["is-system-running"],
+            "checks": {
+                "stdout": {
+                    "accept": "running",
+                }
             },
-
-            {
-                "title": "Kernel information",
-                "program": "uname",
-                "args": ["-a"],
-
-                "handler": "information"
+        },
+        # Title is not str.
+        {
+            "title": 42,
+            "program": "systemctl",
+            "args": ["is-system-running"],
+            "checks": {
+                "stdout": {
+                    "accept": "running",
+                }
             },
-
-            {
-                "title": "System state",
-                "program": "systemctl",
-                "args": ["is-system-running"],
-
-                "handler": "equals",
-                "expected": "running"
+        },
+        # Missing program.
+        {
+            "title": "System state",
+            "args": ["is-system-running"],
+            "checks": {
+                "stdout": {
+                    "accept": "running",
+                }
             },
-
-            {
-                "title": "Failed system services",
-                "program": "systemctl",
-                "args": ["--failed", "--no-pager"],
-
-                "handler": "equals",
-                "expected": "0 loaded units listed"
+        },
+        # Program is not str.
+        {
+            "title": "System state",
+            "program": 42,
+            "args": ["is-system-running"],
+            "checks": {
+                "stdout": {
+                    "accept": "running",
+                }
             },
-
-            {
-                "title": "Package audit",
-                "program": "dpkg",
-                "args": ["--audit"],
-
-                "handler": "empty"
+        },
+        # Program is empty.
+        {
+            "title": "System state",
+            "program": "",
+            "args": ["is-system-running"],
+            "checks": {
+                "stdout": {
+                    "accept": "running",
+                }
             },
-            {
-                "title": "test - ls",
-                "program": "ls",
-                "args": [],
-
-                "handler": "information"
-            }
-        ]
+        },
+        # Program contains only whitespace.
+        {
+            "title": "System state",
+            "program": "   ",
+            "args": ["is-system-running"],
+            "checks": {
+                "stdout": {
+                    "accept": "running",
+                }
+            },
+        },
+        # Missing args.
+        {
+            "title": "System state",
+            "program": "systemctl",
+            "checks": {
+                "stdout": {
+                    "accept": "running",
+                }
+            },
+        },
+        # Args is not list.
+        {
+            "title": "System state",
+            "program": "systemctl",
+            "args": "is-system-running",
+            "checks": {
+                "stdout": {
+                    "accept": "running",
+                }
+            },
+        },
+        # Args contains non-string value.
+        {
+            "title": "System state",
+            "program": "systemctl",
+            "args": ["is-system-running", 42],
+            "checks": {
+                "stdout": {
+                    "accept": "running",
+                }
+            },
+        },
+        # Missing checks.
+        {
+            "title": "System state",
+            "program": "systemctl",
+            "args": ["is-system-running"],
+        },
+        # Checks is not dict.
+        {
+            "title": "System state",
+            "program": "systemctl",
+            "args": ["is-system-running"],
+            "checks": [],
+        },
+        # Checks is empty.
+        {
+            "title": "System state",
+            "program": "systemctl",
+            "args": ["is-system-running"],
+            "checks": {},
+        },
+    ],
 )
-def test_valid_operations(operation):
-    assert validate_operation_structure(operation)
+def test_validate_operation_structure_rejects_invalid_operations(
+    operation: dict,
+) -> None:
+    result = validate_operation_structure(operation)
 
-def test_prepare_modes(tmp_path):
-    test_modes = [
+    assert result[0] is False
+    assert result[1]
+
+
+def test_validate_operation_structure_returns_operation_skeleton() -> None:
+    operation = {
+        "title": "System state",
+        "program": "systemctl",
+        "args": ["is-system-running"],
+        "checks": {
+            "stdout": {
+                "accept": "running",
+            },
+            "returncode": {
+                "accept": 0,
+            },
+        },
+    }
+
+    result = validate_operation_structure(operation)
+
+    assert result[0] is True
+
+    operation_skeleton = result[1]
+
+    assert operation_skeleton["title"] == "System state"
+    assert operation_skeleton["program"] == "systemctl"
+    assert operation_skeleton["args"] == ["is-system-running"]
+    assert operation_skeleton["checks"] == operation["checks"]
+
+
+def test_validate_checks_structure_flattens_checks() -> None:
+    operation = {
+        "title": "System state",
+        "program": "systemctl",
+        "args": ["is-system-running"],
+        "checks": {
+            "stdout": {
+                "accept": "running",
+                "string": "run",
+            },
+            "stderr": {
+                "accept": True,
+            },
+            "returncode": {
+                "accept": 0,
+            },
+        },
+    }
+
+    operation_result = validate_operation_structure(operation)
+    assert operation_result[0] is True
+
+    checks_result = validate_checks_structure(operation_result[1])
+
+    assert checks_result[0] is True
+    assert checks_result[1] == [
         {
-            "name": "valid_test",
-            "description": "Valid test",
-            "operations": [
-                {
-                    "title": "System state",
-                    "program": "systemctl",
-                    "args": ["is-system-running"],
-                    "handler": "equals",
-                    "expected": "running"
-                }
-            ]
+            "source": "stdout",
+            "handler": "accept",
+            "config": "running",
         },
         {
-            "name": "valid_test_2_empty", 
-            "description": "",
-            "operations": [
-                {
-                    "title": "",
-                    "program": "program",
-                    "args": [],
-                    "handler": "equals",
-                    "expected": ""
-                }
-            ]
+            "source": "stdout",
+            "handler": "string",
+            "config": "run",
         },
         {
-            "name": "invalid_test_1",
-            "description": "No operations"
+            "source": "stderr",
+            "handler": "accept",
+            "config": True,
         },
         {
-            "name": "invalid_test_2_no_description",
-            "operations": [
-                {
-                    "title": "System state",
-                    "program": "systemctl",
-                    "args": ["is-system-running"],
-                    "handler": "equals",
-                    "expected": "running"
-                }
-            ]
-        },
-        {
-            "name": "invalid_test_3",
-            "description": "Broken operations",
-            "operations": [
-                {
-                    "title": "System state",
-                    "handler": "equals",
-                    "expected": "running"
-                }
-            ]
-        },
-        {
-            "name": "invalid_test_4", 
-            "description": "",
-            "operations": [
-                {
-                    "title": "",
-                    "program": "",
-                    "args": [],
-                    "handler": "",
-                    "expected": ""
-                }
-            ]
+            "source": "returncode",
+            "handler": "accept",
+            "config": 0,
         },
     ]
 
-    mode_files = []
-    registry = {
-        "equals": EqualsHandler,
+
+@pytest.mark.parametrize(
+    "checks",
+    [
+        {
+            "unsupported-source": {
+                "accept": True,
+            }
+        },
+        {
+            "stdout": "not-a-handler-map",
+        },
+        {
+            "stdout": {},
+        },
+    ],
+)
+def test_validate_checks_structure_rejects_invalid_structure(
+    checks: object,
+) -> None:
+    operation = {
+        "title": "System state",
+        "program": "systemctl",
+        "args": ["is-system-running"],
+        "checks": checks,
     }
 
-    for i, mode in enumerate(test_modes):
-        file = tmp_path / f"mode_{i}.json"
+    operation_result = validate_operation_structure(operation)
 
-        file.write_text(
-            json.dumps(mode),
-            encoding="utf-8"
-        )
+    # The operation-level validator only verifies that checks itself is a
+    # non-empty dict. Nested check structure belongs to the next validator.
+    assert operation_result[0] is True
 
-        mode_files.append(file)
+    checks_result = validate_checks_structure(operation_result[1])
 
-    valid_modes, errors = prepare_modes(mode_files, registry)
+    assert checks_result[0] is False
+    assert checks_result[1]
 
-    assert len(valid_modes) == 2
-    assert len(errors) == 4
+
+def test_validate_checks_accepts_known_handler_and_valid_config() -> None:
+    checks: list[CheckSkeleton] = [
+        {
+            "source": "stdout",
+            "handler": "string",
+            "config": "running",
+        }
+    ]
+
+    result = validate_checks(
+        checks,
+        build_registry(),
+    )
+
+    assert result == (True, checks)
+
+
+def test_validate_checks_rejects_unknown_handler() -> None:
+    checks: list[CheckSkeleton] = [
+        {
+            "source": "stdout",
+            "handler": "does-not-exist",
+            "config": "running",
+        }
+    ]
+
+    result = validate_checks(
+        checks,
+        build_registry(),
+    )
+
+    assert result[0] is False
+    assert "does-not-exist" in result[1]
+    assert "stdout" in result[1]
+
+
+def test_validate_checks_rejects_invalid_handler_config() -> None:
+    checks: list[CheckSkeleton] = [
+        {
+            "source": "returncode",
+            "handler": "string",
+            "config": 0,
+        }
+    ]
+
+    result = validate_checks(
+        checks,
+        build_registry(),
+    )
+
+    assert result[0] is False
+    assert "string" in result[1]
+    assert "returncode" in result[1]
+
+
+def test_prepare_modes_accepts_valid_mode(
+    tmp_path: Path,
+) -> None:
+    mode_file = write_mode(
+        tmp_path,
+        "valid.json",
+        {
+            "name": "base",
+            "description": "Basic diagnostic",
+            "operations": [
+                {
+                    "title": "System state",
+                    "program": "systemctl",
+                    "args": ["is-system-running"],
+                    "checks": {
+                        "stdout": {
+                            "string": "running",
+                        },
+                        "returncode": {
+                            "accept": 0,
+                        },
+                    },
+                }
+            ],
+        },
+    )
+
+    valid_modes, errors = prepare_modes(
+        [mode_file],
+        build_registry(),
+    )
+
+    assert errors == []
+    assert len(valid_modes) == 1
+
+    mode = valid_modes[0]
+
+    assert mode["name"] == "base"
+    assert mode["description"] == "Basic diagnostic"
+    assert len(mode["operations"]) == 1
+
+    operation = mode["operations"][0]
+
+    assert operation["title"] == "System state"
+    assert operation["program"] == "systemctl"
+    assert operation["args"] == ["is-system-running"]
+    assert operation["checks"] == [
+        {
+            "source": "stdout",
+            "handler": "string",
+            "config": "running",
+        },
+        {
+            "source": "returncode",
+            "handler": "accept",
+            "config": 0,
+        },
+    ]
+
+
+def test_prepare_modes_skips_invalid_operation_and_keeps_valid_siblings(
+    tmp_path: Path,
+) -> None:
+    mode_file = write_mode(
+        tmp_path,
+        "partial.json",
+        {
+            "name": "partial",
+            "description": "Partial validity test",
+            "operations": [
+                {
+                    "title": "First valid operation",
+                    "program": "program-one",
+                    "args": [],
+                    "checks": {
+                        "stdout": {
+                            "accept": True,
+                        }
+                    },
+                },
+                {
+                    "title": "Broken operation",
+                    "program": "program-two",
+                    "args": [],
+                    "checks": {
+                        "stdout": {
+                            "does-not-exist": True,
+                        }
+                    },
+                },
+                {
+                    "title": "Second valid operation",
+                    "program": "program-three",
+                    "args": [],
+                    "checks": {
+                        "returncode": {
+                            "accept": 0,
+                        }
+                    },
+                },
+            ],
+        },
+    )
+
+    valid_modes, errors = prepare_modes(
+        [mode_file],
+        build_registry(),
+    )
+
+    assert len(valid_modes) == 1
+    assert [
+        operation["title"]
+        for operation in valid_modes[0]["operations"]
+    ] == [
+        "First valid operation",
+        "Second valid operation",
+    ]
+
+    assert len(errors) == 1
+    assert "Broken operation" in errors[0]
+    assert "does-not-exist" in errors[0]
+
+
+def test_prepare_modes_rejects_mode_when_no_operation_is_valid(
+    tmp_path: Path,
+) -> None:
+    mode_file = write_mode(
+        tmp_path,
+        "no_valid_operations.json",
+        {
+            "name": "broken",
+            "description": "No valid operations",
+            "operations": [
+                {
+                    "title": "Broken operation",
+                    "program": "systemctl",
+                    "args": [],
+                    "checks": {
+                        "stdout": {
+                            "does-not-exist": True,
+                        }
+                    },
+                }
+            ],
+        },
+    )
+
+    valid_modes, errors = prepare_modes(
+        [mode_file],
+        build_registry(),
+    )
+
+    assert valid_modes == []
+    assert len(errors) == 2
+    assert "Broken operation" in errors[0]
+    assert "no valid operations" in errors[1]
+
+
+def test_prepare_modes_rejects_invalid_json(
+    tmp_path: Path,
+) -> None:
+    mode_file = tmp_path / "invalid.json"
+    mode_file.write_text(
+        "{ invalid json",
+        encoding="utf-8",
+    )
+
+    valid_modes, errors = prepare_modes(
+        [mode_file],
+        build_registry(),
+    )
+
+    assert valid_modes == []
+    assert len(errors) == 1
+    assert "invalid JSON" in errors[0]
+
+
+@pytest.mark.parametrize(
+    "root_value",
+    [
+        None,
+        42,
+        True,
+        "hello",
+        [],
+    ],
+)
+def test_prepare_modes_rejects_non_object_json_root(
+    tmp_path: Path,
+    root_value: object,
+) -> None:
+    mode_file = write_mode(
+        tmp_path,
+        "invalid_root.json",
+        root_value,
+    )
+
+    valid_modes, errors = prepare_modes(
+        [mode_file],
+        build_registry(),
+    )
+
+    assert valid_modes == []
+    assert len(errors) == 1
+    assert "root JSON value must be an object" in errors[0]

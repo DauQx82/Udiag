@@ -4,9 +4,14 @@
 import json
 from pathlib import Path
 from collections.abc import Mapping
-from typing import cast
+from typing import (
+    cast,
+    Literal,
+    Union,
+    TypedDict,
+    Any
+)
 
-from structure import ModeDict, OperationDict
 from handlers.handler import BaseHandler
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -23,7 +28,16 @@ def load_mode(file: Path) -> object:
         return json.load(f)
 
 
-def validate_mode_structure(mode_file: dict) -> bool:
+class ModeSkeleton(TypedDict):
+    name: str
+    description: str
+    operations: list[dict[str, object]]
+
+type ValidateModeStructureSuccess = tuple[Literal[True], ModeSkeleton]
+type ValidateModeStructureFailure = tuple[Literal[False], str]
+type ValidateModeStructureResult = Union[ValidateModeStructureSuccess, ValidateModeStructureFailure]
+
+def validate_mode_structure(mode_file: dict[Any, Any]) -> ValidateModeStructureResult:
     """Checks whether the dictionary contains the required diagnostic keys and whether their values ​​have the correct types."""
     expected_structure: dict[str, type] = {
         "name": str,
@@ -33,105 +47,240 @@ def validate_mode_structure(mode_file: dict) -> bool:
 
     for key, expected_type in expected_structure.items():
         if key not in mode_file:
-            return False
+            return False, f"Mode has no: {key} in scenario."
         
         if not isinstance(mode_file[key], expected_type):
-            return False
+            return False, f"Type of {mode_file[key]} is not supported."
         
     if not mode_file["operations"]:
-        return False
+        return False, "No operations."
 
     if not all(isinstance(operation, dict) for operation in mode_file["operations"]):
-        return False
+        return False, "Operation invalid structure."
 
-    return True
+    valid_mode: ModeSkeleton = {
+        "name": mode_file['name'],
+        "description": mode_file['description'],
+        "operations": mode_file['operations']
+    }
+    return True, valid_mode
 
 
-def validate_operation_structure(operation: dict) -> bool:
+class OperationSkeleton(TypedDict):
+    title: str
+    program: str
+    args: list[str]
+    checks: dict[str, object]
+
+type ValidateOperationSuccess = tuple[Literal[True], OperationSkeleton]
+type ValidateOperationFailure = tuple[Literal[False], str]
+type ValidateOperationResult = Union[ValidateOperationSuccess, ValidateOperationFailure]
+
+def validate_operation_structure(operation: dict[Any, Any]) -> ValidateOperationResult:
     """Checks the operation structure."""
     expected_structure: dict[str, type] = {
         "title": str,
         "program": str,
         "args": list,
-        "handler": str,
+        "checks": dict,
     }
 
     for key, expected_type in expected_structure.items():
         if key not in operation:
-            return False
+            return False, f"Operation has no: {key} in structure."
 
         if not isinstance(operation[key], expected_type):
-            return False
+            return False, f"Type of {operation[key]} is not supported."
+
+    if not operation["checks"]:
+        return False, "No 'checks' section."
 
     if not operation["program"].strip():
-        return False
+        return False, "Program field is empty."
 
     if not all(isinstance(arg, str) for arg in operation["args"]):
-        return False
+        return False, "Type of arg: is not supported."
 
-    return True
+    valid_operation: OperationSkeleton = {
+        "title": operation['title'],
+        "program": operation['program'],
+        "args": operation['args'],
+        "checks": operation['checks']
+    }
+
+    return True, valid_operation
 
 
-def validate_operation_handler(operation: OperationDict,
-                               registry: Mapping[str, type[BaseHandler]]) -> bool:
-    handler_name = operation["handler"]
+type CheckSource = Literal["stdout", "stderr", "returncode"]
 
+class CheckSkeleton(TypedDict):
+    source: CheckSource
+    handler: str
+    config: object
+
+type ValidateChecksStructureSuccess = tuple[Literal[True], list[CheckSkeleton]]
+type ValidateChecksStructureFailure = tuple[Literal[False], str]
+type ValidateChecksStructureResult = Union[ValidateChecksStructureSuccess, ValidateChecksStructureFailure]
+
+def validate_checks_structure(operation: OperationSkeleton) -> ValidateChecksStructureResult:
+    """Checks the structure of operation checks."""
+    allowed_sources: set[CheckSource] = {"stdout", "stderr", "returncode"}
+    checks = operation["checks"]
+
+    valid_checks: list[CheckSkeleton] = []
+
+    for source, handlers in checks.items():
+        if source not in allowed_sources:
+            return False, "Source of data in not supported."
+
+        if not isinstance(handlers, dict):
+            return False, "Invalid structure of handler/s instruction."
+
+        if not handlers:
+            return False, "No handler/s instructions."
+
+        valid_source = cast(CheckSource, source)
+
+        for handler_name, config in handlers.items():
+            valid_check: CheckSkeleton = {
+                "source": valid_source,
+                "handler": handler_name,
+                "config": config
+            }
+            valid_checks.append(valid_check)
+
+    return True, valid_checks
+
+
+def validate_handler(
+    handler_name: str,
+    config: object,
+    registry: Mapping[str, type[BaseHandler]],
+) -> bool:
+    """"""
     if handler_name not in registry:
         return False
 
     handler_class = registry[handler_name]
-    return handler_class.validate_config(operation)
+    return handler_class.validate_config(config)
 
 
-def prepare_modes(mode_files: list[Path],
-                  registry: Mapping[str, type[BaseHandler]]) -> tuple[list[ModeDict], list[str]]:
-    """Checks JSON, mode structure and operation structures."""
-    valid_modes:list[ModeDict] = []
-    errors:list[str] = []
+type ValidateChecksSuccess = tuple[Literal[True], list[CheckSkeleton]]
+type ValidateChecksFailure = tuple[Literal[False], str]
+type ValidateChecksResult = Union[ValidateChecksSuccess, ValidateChecksFailure]
+
+def validate_checks(
+    checks: list[CheckSkeleton],
+    registry: Mapping[str, type[BaseHandler]],
+) -> ValidateChecksResult:
+    """"""
+    for check in checks:
+        if not validate_handler(
+            check["handler"],
+            check["config"],
+            registry
+        ):
+            return False, (
+                f"Invalid handler '{check['handler']}' "
+                f"for source '{check['source']}'."
+            )
+
+    return True, checks
+
+
+class ValidatedOperation(TypedDict):
+    title: str
+    program: str
+    args: list[str]
+    checks: list[CheckSkeleton]
+
+class ValidatedMode(TypedDict):
+    name: str
+    description: str
+    operations: list[ValidatedOperation]
+
+def prepare_modes(
+    mode_files: list[Path],
+    registry: Mapping[str, type[BaseHandler]],
+) -> tuple[list[ValidatedMode], list[str]]:
+    """Loads modes, validates their structure and prepares valid operations."""
+    valid_modes: list[ValidatedMode] = []
+    errors: list[str] = []
 
     for mode in mode_files:
         try:
             loaded_json = load_mode(mode)
         except json.JSONDecodeError:
-            message = (
-                f"Mode: {mode} JSONDecodeError return Err\n"
-                f"Check your {mode.name}"
-            )
-            errors.append(message)
+            errors.append(f"Mode: {mode} contains invalid JSON.")
             continue
 
         if not isinstance(loaded_json, dict):
-            errors.append("mode is not dict type, or something.")
+            errors.append(f"Mode: {mode} root JSON value must be an object.")
             continue
 
-        if not validate_mode_structure(loaded_json):
-            errors.append(f"Mode: {mode} has invalid structure")
+        mode_result = validate_mode_structure(loaded_json)
+
+        if mode_result[0] is False:
+            errors.append(f"Mode: {mode}: {mode_result[1]}")
             continue
 
-        operations_valid = True
+        valid_operations: list[ValidatedOperation] = []
 
-        for operation in loaded_json["operations"]:
-            if not validate_operation_structure(operation):
-                operations_valid = False
+        for raw_operation in mode_result[1]["operations"]:
+            operation_result = validate_operation_structure(raw_operation)
 
-                operation_name = operation.get("title", "<unknown operation>")
+            if operation_result[0] is False:
+                operation_name = raw_operation.get(
+                    "title",
+                    "<unknown operation>",
+                )
+
                 errors.append(
-                    f"Operation: {operation_name} has invalid structure"
+                    f"Mode: {mode.name}, "
+                    f"operation: {operation_name}: "
+                    f"{operation_result[1]}"
                 )
                 continue
 
-            operation_dict = cast(OperationDict, operation)
+            operation_skeleton = operation_result[1]
+            checks_structure_result = validate_checks_structure(operation_skeleton)
 
-            if not validate_operation_handler(operation_dict, registry):
-                operations_valid = False
-
-                operation_name = operation["title"]
+            if checks_structure_result[0] is False:
                 errors.append(
-                    f"Operation: {operation_name} failed handler validation"
+                    f"Mode: {mode.name}, "
+                    f"operation: {operation_skeleton['title']}: "
+                    f"{checks_structure_result[1]}"
                 )
+                continue
 
-        if operations_valid:
-            mode_dict = cast(ModeDict, loaded_json)
-            valid_modes.append(mode_dict)
+            checks = checks_structure_result[1]
+            checks_result = validate_checks(checks,registry)
+
+            if checks_result[0] is False:
+                errors.append(
+                    f"Mode: {mode.name}, "
+                    f"operation: {operation_skeleton['title']}: "
+                    f"{checks_result[1]}"
+                )
+                continue
+
+            valid_operation: ValidatedOperation = {
+                "title": operation_skeleton["title"],
+                "program": operation_skeleton["program"],
+                "args": operation_skeleton["args"],
+                "checks": checks_result[1],
+            }
+            valid_operations.append(valid_operation)
+
+        if not valid_operations:
+            errors.append(f"Mode: {mode.name} contains no valid operations.")
+            continue
+
+        valid_mode: ValidatedMode = {
+            "name": mode_result[1]["name"],
+            "description": mode_result[1]["description"],
+            "operations": valid_operations,
+        }
+        valid_modes.append(valid_mode)
 
     return valid_modes, errors

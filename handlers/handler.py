@@ -13,7 +13,7 @@ class BaseHandler(ABC):
 
     @classmethod
     @abstractmethod
-    def validate_config(cls, operation: OperationDict) -> bool:
+    def validate_config(cls, config: object) -> bool:
         pass
 
     @abstractmethod

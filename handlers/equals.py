@@ -1,33 +1,26 @@
 # Copyright (C) 2026 DauQx82
 # SPDX-License-Identifier: GPL-3.0-or-later
+
 from typing import cast
 
 from .handler import BaseHandler
-from structure import OperationResult, HandlerResult
+from structure import HandlerResult
+
 
 class EqualsHandler(BaseHandler):
-    def __init__(self, result: OperationResult, expected: str | None) -> None:
-        super().__init__(result, expected)
-
     @classmethod
-    def validate_config(cls, config) -> bool:
-        if not isinstance(config, dict):
-            return False
-
-        if "expected" not in config:
-            return False
-
-        if not isinstance(config["expected"], str):
-            return False
-        
-        return True
+    def validate_config(cls, config: object) -> bool:
+        return type(config) in (str, int)
 
     def evaluate(self) -> HandlerResult:
-        expected = cast(str, self.expected)
-        actual = self.result.stdout.rstrip("\r\n")
+        expected = cast(str | int, self.config)
+        actual = self.actual
+
+        if isinstance(actual, str):
+            actual = actual.rstrip("\r\n")
 
         return HandlerResult(
             success=actual == expected,
             actual=actual,
-            expected=expected
+            expected=expected,
         )

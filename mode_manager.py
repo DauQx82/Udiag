@@ -254,7 +254,7 @@ def prepare_modes(
                 continue
 
             checks = checks_structure_result[1]
-            checks_result = validate_checks(checks,registry)
+            checks_result = validate_checks(checks, registry)
 
             if checks_result[0] is False:
                 errors.append(

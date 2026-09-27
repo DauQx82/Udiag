@@ -10,11 +10,14 @@ import udiag
 from handlers.handler import BaseHandler
 from handlers.equals import EqualsHandler
 from structure import (
-    ModeDict,
-    OperationDict,
+    CheckResult,
+    EvaluatedOperation,
+    OperationExecutionError,
     OperationOutcome,
     OperationResult,
     Operation,
+    ValidatedMode,
+    ValidatedOperation,
 )
 # README!
 # type: ignore[arg-type] ← I use this construct so that Pylance doesn't report a type error.
@@ -138,7 +141,7 @@ def test_main_converts_execution_failure_to_error_outcome(
     ]
 
     presented: list[
-    tuple[int, OperationDict, OperationOutcome]
+    tuple[int, ValidatedOperation, OperationOutcome]
     ] = []
 
     def raise_execution_error(operation) -> None:
@@ -146,7 +149,7 @@ def test_main_converts_execution_failure_to_error_outcome(
 
     def capture_result(
         i: int,
-        operation_data: OperationDict,
+        operation_data: ValidatedOperation,
         outcome: OperationOutcome,
         with_details: bool = False,
     ) -> None:
@@ -181,8 +184,8 @@ def test_main_converts_execution_failure_to_error_outcome(
 
     assert index == 1
     assert operation_data["title"] == "Test operation"
-    assert outcome[0] is False
-    assert outcome[1] is error
+    assert isinstance(outcome, OperationExecutionError)
+    assert outcome.error is error
 
 
 def test_main_does_not_hide_unexpected_exception(
@@ -204,8 +207,13 @@ def test_main_does_not_hide_unexpected_exception(
                     "title": "Test operation",
                     "program": "test-program",
                     "args": [],
-                    "handler": "equals",
-                    "expected": "ok",
+                    "checks": [
+                        {
+                            "source": "stdout",
+                            "handler": "equals",
+                            "config": "ok",
+                        }
+                    ],
                 }
             ],
         }
@@ -244,7 +252,7 @@ def test_main_converts_successful_execution_to_handler_outcome(
         details=False,
     )
 
-    modes: list[ModeDict] = [
+    modes: list[ValidatedMode] = [
         {
             "name": "test",
             "description": "Test mode",
@@ -253,8 +261,13 @@ def test_main_converts_successful_execution_to_handler_outcome(
                     "title": "Test operation",
                     "program": "test-program",
                     "args": [],
-                    "handler": "equals",
-                    "expected": "ok",
+                    "checks": [
+                        {
+                            "source": "stdout",
+                            "handler": "equals",
+                            "config": "ok",
+                        }
+                    ],
                 }
             ],
         }
@@ -265,7 +278,7 @@ def test_main_converts_successful_execution_to_handler_outcome(
     }
 
     presented: list[
-        tuple[int, OperationDict, OperationOutcome]
+        tuple[int, ValidatedOperation, OperationOutcome]
     ] = []
 
     def successful_execution(operation) -> OperationResult:
@@ -277,7 +290,7 @@ def test_main_converts_successful_execution_to_handler_outcome(
 
     def capture_result(
         i: int,
-        operation_data: OperationDict,
+        operation_data: ValidatedOperation,
         outcome: OperationOutcome,
         with_details: bool = False,
     ) -> None:
@@ -313,9 +326,17 @@ def test_main_converts_successful_execution_to_handler_outcome(
     assert index == 1
     assert operation_data["title"] == "Test operation"
 
-    assert outcome[0] is True
+    assert isinstance(outcome, EvaluatedOperation)
+    assert outcome.success is True
 
-    handler_result = outcome[1]
+    assert len(outcome.check_results) == 1
+
+    check_result = outcome.check_results[0]
+
+    assert check_result.source == "stdout"
+    assert check_result.handler == "equals"
+
+    handler_result = check_result.result
 
     assert handler_result.success is True
     assert handler_result.actual == "ok"
@@ -354,7 +375,7 @@ def test_main_treats_nonzero_returncode_as_normal_outcome(
         details=False,
     )
 
-    modes: list[ModeDict] = [
+    modes: list[ValidatedMode] = [
         {
             "name": "test",
             "description": "Test mode",
@@ -363,8 +384,13 @@ def test_main_treats_nonzero_returncode_as_normal_outcome(
                     "title": "Test operation",
                     "program": "test-program",
                     "args": [],
-                    "handler": "equals",
-                    "expected": "ok",
+                    "checks": [
+                        {
+                            "source": "stdout",
+                            "handler": "equals",
+                            "config": "ok",
+                        }
+                    ],
                 }
             ],
         }
@@ -375,7 +401,7 @@ def test_main_treats_nonzero_returncode_as_normal_outcome(
     }
 
     presented: list[
-        tuple[int, OperationDict, OperationOutcome]
+        tuple[int, ValidatedOperation, OperationOutcome]
     ] = []
 
     def nonzero_execution(operation: Operation) -> OperationResult:
@@ -387,7 +413,7 @@ def test_main_treats_nonzero_returncode_as_normal_outcome(
 
     def capture_result(
         i: int,
-        operation_data: OperationDict,
+        operation_data: ValidatedOperation,
         outcome: OperationOutcome,
         with_details: bool = False,
     ) -> None:
@@ -420,10 +446,14 @@ def test_main_treats_nonzero_returncode_as_normal_outcome(
 
     outcome = presented[0][2]
 
-    assert outcome[0] is True
-    assert outcome[1].success is True
-    assert outcome[1].actual == "ok"
-    assert outcome[1].expected == "ok"
+    assert isinstance(outcome, EvaluatedOperation)
+    assert outcome.success is True
+
+    check_result = outcome.check_results[0]
+
+    assert check_result.result.success is True
+    assert check_result.result.actual == "ok"
+    assert check_result.result.expected == "ok"
 
 
 def test_main_continues_after_execution_error(
@@ -436,7 +466,7 @@ def test_main_continues_after_execution_error(
         details=False,
     )
 
-    modes: list[ModeDict] = [
+    modes: list[ValidatedMode] = [
         {
             "name": "test",
             "description": "Test mode",
@@ -445,15 +475,27 @@ def test_main_continues_after_execution_error(
                     "title": "Broken operation",
                     "program": "broken-program",
                     "args": [],
-                    "handler": "equals",
-                    "expected": "ok",
+
+                    "checks": [
+                        {
+                            "source": "stdout",
+                            "handler": "equals",
+                            "config": "ok",
+                        }
+                    ],
                 },
                 {
                     "title": "Working operation",
                     "program": "working-program",
                     "args": [],
-                    "handler": "equals",
-                    "expected": "ok",
+
+                    "checks": [
+                        {
+                            "source": "stdout",
+                            "handler": "equals",
+                            "config": "ok",
+                        }
+                    ]
                 },
             ],
         }
@@ -465,7 +507,7 @@ def test_main_continues_after_execution_error(
 
     executed: list[str] = []
     presented: list[
-        tuple[int, OperationDict, OperationOutcome]
+        tuple[int, ValidatedOperation, OperationOutcome]
     ] = []
 
     def execute(operation: Operation) -> OperationResult:
@@ -482,7 +524,7 @@ def test_main_continues_after_execution_error(
 
     def capture_result(
         i: int,
-        operation_data: OperationDict,
+        operation_data: ValidatedOperation,
         outcome: OperationOutcome,
         with_details: bool = False,
     ) -> None:
@@ -521,8 +563,8 @@ def test_main_continues_after_execution_error(
     first_outcome = presented[0][2]
     second_outcome = presented[1][2]
 
-    assert first_outcome[0] is False
-    assert isinstance(first_outcome[1], FileNotFoundError)
+    assert isinstance(first_outcome, OperationExecutionError)
+    assert isinstance(first_outcome.error, FileNotFoundError)
 
-    assert second_outcome[0] is True
-    assert second_outcome[1].success is True
+    assert isinstance(second_outcome, EvaluatedOperation)
+    assert second_outcome.success is True

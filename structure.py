@@ -1,22 +1,8 @@
 # Copyright (C) 2026 DauQx82
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from typing import TypedDict, NotRequired, Literal, Union
+from typing import TypedDict, Literal
 from dataclasses import dataclass
-
-class OperationDict(TypedDict):
-    title: str
-    program: str
-    args: list[str]
-    handler: str
-    expected: NotRequired[str] # Do wywalenia po MVP
-
-
-class ModeDict(TypedDict):
-    name: str
-    description: str
-    operations: list[OperationDict]
-
 
 @dataclass
 class Operation:
@@ -39,14 +25,71 @@ class HandlerResult:
     expected: str | int | None
 
 
-def create_operation(operation_data: OperationDict) -> Operation:
+class ModeSkeleton(TypedDict):
+    name: str
+    description: str
+    operations: list[dict[str, object]]
+
+
+class OperationSkeleton(TypedDict):
+    title: str
+    program: str
+    args: list[str]
+    checks: dict[str, object]
+
+type CheckSource = Literal["stdout", "stderr", "returncode"]
+
+class CheckSkeleton(TypedDict):
+    source: CheckSource
+    handler: str
+    config: object
+
+
+class ValidatedOperation(TypedDict):
+    title: str
+    program: str
+    args: list[str]
+    checks: list[CheckSkeleton]
+
+
+class ValidatedMode(TypedDict):
+    name: str
+    description: str
+    operations: list[ValidatedOperation]
+
+
+@dataclass
+class CheckResult:
+    source: CheckSource
+    handler: str
+    result: HandlerResult
+
+
+@dataclass
+class EvaluatedOperation:
+    process_result: OperationResult
+    check_results: list[CheckResult]
+
+    @property
+    def success(self) -> bool:
+        return all(
+            check.result.success
+            for check in self.check_results
+        )
+
+
+@dataclass
+class OperationExecutionError:
+    error: Exception
+
+
+type OperationOutcome = EvaluatedOperation | OperationExecutionError
+
+
+def create_operation(operation_data: ValidatedOperation) -> Operation:
     operation = Operation(
     operation_data["title"],
     operation_data["program"],
     operation_data["args"]
     )
     return operation
-
-type OperationSuccess = tuple[Literal[True], HandlerResult]
-type OperationFailure = tuple[Literal[False], Exception]
-type OperationOutcome = Union[OperationSuccess, OperationFailure]

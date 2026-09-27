@@ -8,12 +8,19 @@ from typing import (
     cast,
     Literal,
     Union,
-    TypedDict,
     Any
 )
 
 from handlers.handler import BaseHandler
 
+from structure import (
+    ModeSkeleton,
+    OperationSkeleton,
+    CheckSource,
+    CheckSkeleton,
+    ValidatedOperation,
+    ValidatedMode
+)
 BASE_DIR = Path(__file__).resolve().parent
 MODE_DIR = BASE_DIR / "modes"
 
@@ -27,11 +34,6 @@ def load_mode(file: Path) -> object:
     with file.open("r", encoding="utf-8") as f:
         return json.load(f)
 
-
-class ModeSkeleton(TypedDict):
-    name: str
-    description: str
-    operations: list[dict[str, object]]
 
 type ValidateModeStructureSuccess = tuple[Literal[True], ModeSkeleton]
 type ValidateModeStructureFailure = tuple[Literal[False], str]
@@ -65,12 +67,6 @@ def validate_mode_structure(mode_file: dict[Any, Any]) -> ValidateModeStructureR
     }
     return True, valid_mode
 
-
-class OperationSkeleton(TypedDict):
-    title: str
-    program: str
-    args: list[str]
-    checks: dict[str, object]
 
 type ValidateOperationSuccess = tuple[Literal[True], OperationSkeleton]
 type ValidateOperationFailure = tuple[Literal[False], str]
@@ -110,13 +106,6 @@ def validate_operation_structure(operation: dict[Any, Any]) -> ValidateOperation
 
     return True, valid_operation
 
-
-type CheckSource = Literal["stdout", "stderr", "returncode"]
-
-class CheckSkeleton(TypedDict):
-    source: CheckSource
-    handler: str
-    config: object
 
 type ValidateChecksStructureSuccess = tuple[Literal[True], list[CheckSkeleton]]
 type ValidateChecksStructureFailure = tuple[Literal[False], str]
@@ -187,17 +176,6 @@ def validate_checks(
 
     return True, checks
 
-
-class ValidatedOperation(TypedDict):
-    title: str
-    program: str
-    args: list[str]
-    checks: list[CheckSkeleton]
-
-class ValidatedMode(TypedDict):
-    name: str
-    description: str
-    operations: list[ValidatedOperation]
 
 def prepare_modes(
     mode_files: list[Path],

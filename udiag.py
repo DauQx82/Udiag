@@ -7,10 +7,14 @@ import sys
 
 from mode_manager import prepare_modes, find_mode_files
 from structure import (
-    ModeDict,
+    ValidatedMode,
+    CheckSkeleton,
+    CheckResult,
     Operation,
     OperationResult,
-    create_operation
+    EvaluatedOperation,
+    OperationExecutionError,
+    create_operation,
 )
 
 from handler_manager import (
@@ -22,7 +26,8 @@ from handlers.handler import BaseHandler
 from terminal import terminal_title, present_list
 from state import errors
 
-def get_mode_names(modes: list[ModeDict]) -> list[str]:
+
+def get_mode_names(modes: list[ValidatedMode]) -> list[str]:
     """Prepares a list of arguments for each specific mode."""
     args_list: list[str] = []
     for mode_files in modes:
@@ -31,7 +36,7 @@ def get_mode_names(modes: list[ModeDict]) -> list[str]:
     return args_list
 
 
-def build_parser(valid_modes: list[ModeDict]) -> argparse.ArgumentParser:
+def build_parser(valid_modes: list[ValidatedMode]) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Udiag - Diagnostic system with JSON"
     )
@@ -116,8 +121,7 @@ def execute_operation(operation: Operation) -> OperationResult:
     result = subprocess.run([operation.program, *operation.args],
                             capture_output=True,
                             text=True,
-                            timeout=10) # TODO A timeout became a normal operation 
-                                        # result/error instead of terminating the program.
+                            timeout=10)
 
     operation_result = OperationResult(
         result.stdout,
@@ -126,14 +130,58 @@ def execute_operation(operation: Operation) -> OperationResult:
     )
     return operation_result
 
+
+def get_check_value(result: OperationResult, source: str) -> str | int:
+    if source == "stdout":
+        return result.stdout
+
+    if source == "stderr":
+        return result.stderr
+
+    if source == "returncode":
+        return result.returncode
+
+    raise ValueError(f"Unsupported source: {source}")
+
+
+def evaluate_checks(
+    operation_result: OperationResult,
+    checks: list[CheckSkeleton],
+    registry: dict[str, type[BaseHandler]],
+) -> list[CheckResult]:
+    results: list[CheckResult] = []
+
+    for check in checks:
+        actual = get_check_value(
+            operation_result,
+            check["source"],
+        )
+
+        handler_class = registry[check["handler"]]
+
+        handler = handler_class(
+            actual,
+            check["config"],
+        )
+        handler_result = handler.evaluate()
+
+        check_result = CheckResult(
+            source=check["source"],
+            handler=check["handler"],
+            result=handler_result,
+        )
+        results.append(check_result)
+
+    return results
+
 def main(args,
          registry: dict[str, type[BaseHandler]],
-         valid_modes: list[ModeDict]) -> None:
+         valid_modes: list[ValidatedMode]) -> None:
     # Errors FIXME
     if args.mode_errors:
         print_mode_errors()
         return
-    
+
     # Run
     if args.command == "run":
         for mode in valid_modes:
@@ -154,19 +202,20 @@ def main(args,
                         FileNotFoundError,
                         PermissionError,
                         subprocess.TimeoutExpired
-                        ) as error:
-                        outcome = (False, error)
-                    else:
-                        handler_name = operation_data["handler"]
-                        handler_class = registry[handler_name]
+                    ) as error:
+                        outcome = OperationExecutionError(error=error)
 
-                        handler = handler_class(
+                    else:
+                        check_results = evaluate_checks(
                             operation_result,
-                            operation_data.get("expected")
+                            operation_data["checks"],
+                            registry,
                         )
 
-                        handler_result = handler.evaluate()
-                        outcome = (True, handler_result)
+                        outcome = EvaluatedOperation(
+                            process_result=operation_result,
+                            check_results=check_results,
+                        )
                     present_list(i, operation_data, outcome, args.details)
 
                 print("# End.")
@@ -215,4 +264,4 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(0)
 
-    main(args,registry, valid_modes)
+    main(args, registry, valid_modes)

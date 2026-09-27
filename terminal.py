@@ -11,9 +11,10 @@ from structure import (
     ValidatedOperation,
     OperationOutcome,
     OperationExecutionError,
+    SkippedOperation
 )
 
-type OperationStatus = Literal["OK", "FAIL", "ERROR"]
+type OperationStatus = Literal["OK", "FAIL", "ERROR", "SKIP"]
 
 GREEN = "\033[32m"
 RED_WARNING = "\033[91m"
@@ -24,6 +25,9 @@ def operation_status(result: OperationOutcome) -> OperationStatus:
     if isinstance(result, OperationExecutionError):
         return "ERROR"
 
+    if isinstance(result, SkippedOperation):
+        return "SKIP"
+
     if result.success is False:
         return "FAIL"
 
@@ -32,7 +36,8 @@ def operation_status(result: OperationOutcome) -> OperationStatus:
 STATUS_LABELS = {
     "OK": f"[{GREEN}SUCCESS{RESET}]",
     "FAIL": f"[{RED_WARNING}FAILURE{RESET}]",
-    "ERROR": f"[{RED_ERROR} ERROR {RESET}]"
+    "ERROR": f"[{RED_ERROR} ERROR {RESET}]",
+    "SKIP": f"[{RED_ERROR} SKIP {RESET}]"
 }
 
 def terminal_title(mode: ValidatedMode,
@@ -57,6 +62,10 @@ def present_list(
 
     if isinstance(result, OperationExecutionError):
         print("    " * 2, "Exception:", result.error)
+        return
+
+    if isinstance(result, SkippedOperation):
+        print("    " * 2, "Reason:", result.reason)
         return
 
     if status == "FAIL":

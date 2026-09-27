@@ -38,7 +38,7 @@ def get_mode_names(modes: list[ValidatedMode]) -> list[str]:
 
 def build_parser(valid_modes: list[ValidatedMode]) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Udiag - Diagnostic system with JSON"
+        description="Udiag - Declarative diagnostic scenario runner"
     )
 
     mode_names = get_mode_names(valid_modes)
@@ -71,6 +71,7 @@ def build_parser(valid_modes: list[ValidatedMode]) -> argparse.ArgumentParser:
         "--details",
         action="store_true"
     )
+
     # Show
     show_parser = subparsers.add_parser(
         "show",
@@ -82,8 +83,19 @@ def build_parser(valid_modes: list[ValidatedMode]) -> argparse.ArgumentParser:
         choices=mode_names
     )
 
-    return parser
+    # List
+    subparsers.add_parser(
+        "list",
+        help="List available diagnostic modes"
+    )
 
+    # About
+    subparsers.add_parser(
+        "about",
+        help="Show information about Udiag"
+    )
+
+    return parser
 
 def print_mode_warning() -> None:
     if errors.count > 0:
@@ -115,6 +127,28 @@ def print_mode_errors() -> None:
 
         return
     print("No errors.")
+
+
+def print_mode_list(
+    valid_modes: list[ValidatedMode],
+) -> None:
+    if not valid_modes:
+        print("No diagnostic modes available.")
+        return
+
+    print("Available diagnostic modes:")
+    print()
+
+    for mode in valid_modes:
+        print(f"  {mode['name']}")
+        print(f"    {mode['description']}")
+
+
+def print_about() -> None:
+    print("Udiag")
+    print("Declarative diagnostic scenario runner")
+    print()
+    print("License: GPL-3.0-or-later")
 
 
 def execute_operation(operation: Operation) -> OperationResult:
@@ -181,6 +215,15 @@ def main(args,
     if args.mode_errors:
         print_mode_errors()
         return
+
+    if args.command == "list":
+        print_mode_list(valid_modes)
+        return
+
+    if args.command == "about":
+        print_about()
+        return
+
 
     # Run
     if args.command == "run":
@@ -265,3 +308,5 @@ if __name__ == "__main__":
         sys.exit(0)
 
     main(args, registry, valid_modes)
+
+# TODO: Future: SKIP outcome for conditional/precondition-based operations.

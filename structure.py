@@ -82,9 +82,14 @@ class EvaluatedOperation:
 class OperationExecutionError:
     error: Exception
 
+@dataclass
+class SkippedOperation:
+    reason: str
 
-type OperationOutcome = EvaluatedOperation | OperationExecutionError
 
+type OperationOutcome = (
+    EvaluatedOperation | OperationExecutionError | SkippedOperation
+)
 
 def create_operation(operation_data: ValidatedOperation) -> Operation:
     operation = Operation(

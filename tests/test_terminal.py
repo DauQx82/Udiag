@@ -11,6 +11,7 @@ from structure import (
     OperationOutcome,
     OperationResult,
     ValidatedOperation,
+    SkippedOperation
 )
 from terminal import operation_status, present_list
 
@@ -201,3 +202,23 @@ def test_present_list_expands_error_without_details(
     assert "System state" in output
     assert "Exception:" in output
     assert "command not found" in output
+
+def test_operation_status_skip() -> None:
+    result = SkippedOperation("condition not met")
+
+    assert operation_status(result) == "SKIP"
+
+
+def test_present_list_skip(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    operation = make_operation()
+    result = SkippedOperation("condition not met")
+
+    present_list(1, operation, result)
+
+    output = capsys.readouterr().out
+
+    assert "SKIP" in output
+    assert "Reason:" in output
+    assert "condition not met" in output

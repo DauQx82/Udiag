@@ -568,3 +568,125 @@ def test_main_continues_after_execution_error(
 
     assert isinstance(second_outcome, EvaluatedOperation)
     assert second_outcome.success is True
+
+
+def test_parser_list() -> None:
+    parser = udiag.build_parser([])
+
+    args = parser.parse_args(["list"])
+
+    assert args.command == "list"
+    assert args.mode_errors is False
+
+
+def test_parser_about() -> None:
+    parser = udiag.build_parser([])
+
+    args = parser.parse_args(["about"])
+
+    assert args.command == "about"
+    assert args.mode_errors is False
+
+
+def test_print_mode_list(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    modes: list[ValidatedMode] = [
+        {
+            "name": "base",
+            "description": "Basic system diagnostic",
+            "operations": [],
+        },
+        {
+            "name": "system",
+            "description": "System diagnostic",
+            "operations": [],
+        },
+    ]
+
+    udiag.print_mode_list(modes)
+
+    output = capsys.readouterr().out
+
+    assert "Available diagnostic modes:" in output
+    assert "base" in output
+    assert "Basic system diagnostic" in output
+    assert "system" in output
+    assert "System diagnostic" in output
+
+
+def test_print_mode_list_empty(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    udiag.print_mode_list([])
+
+    output = capsys.readouterr().out
+
+    assert "No diagnostic modes available." in output
+
+
+def test_print_about(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    udiag.print_about()
+
+    output = capsys.readouterr().out
+
+    assert "Udiag" in output
+    assert "Declarative diagnostic scenario runner" in output
+    assert "GPL-3.0-or-later" in output
+
+
+def test_main_handles_list_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args = Namespace(
+        mode_errors=False,
+        command="list",
+    )
+
+    modes: list[ValidatedMode] = []
+
+    called = False
+
+    def capture_list(
+        valid_modes: list[ValidatedMode],
+    ) -> None:
+        nonlocal called
+        called = True
+        assert valid_modes is modes
+
+    monkeypatch.setattr(
+        udiag,
+        "print_mode_list",
+        capture_list,
+    )
+
+    udiag.main(args, {}, modes)
+
+    assert called is True
+
+
+def test_main_handles_about_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args = Namespace(
+        mode_errors=False,
+        command="about",
+    )
+
+    called = False
+
+    def capture_about() -> None:
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr(
+        udiag,
+        "print_about",
+        capture_about,
+    )
+
+    udiag.main(args, {}, [])
+
+    assert called is True

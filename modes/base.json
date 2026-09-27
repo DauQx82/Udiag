@@ -1,21 +1,134 @@
 {
-	"name": "base",
-	"description": "Basic system diagnostic",
-
-	"operations": [
-		{
-			"title": "System state",
-			"program": "systemctl",
-			"args": ["is-system-running"],
-
-			"checks": {
-				"stdout": {
-					"equals": "running"
-				},
-				"returncode": {
-					"equals": 0
-				}
-			}
-		}
-	]
+    "name": "base",
+    "description": "Core GNU/Linux system health checks",
+    "operations": [
+        {
+            "title": "System reached running state",
+            "program": "systemctl",
+            "args": ["is-system-running"],
+            "checks": {
+                "stdout": {
+                    "equals": "running"
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "No failed systemd units",
+            "program": "systemctl",
+            "args": ["--failed", "--no-legend", "--plain"],
+            "checks": {
+                "stdout": {
+                    "empty": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "System journal service is active",
+            "program": "systemctl",
+            "args": ["is-active", "systemd-journald.service"],
+            "checks": {
+                "stdout": {
+                    "equals": "active"
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Package database audit",
+            "program": "dpkg",
+            "args": ["--audit"],
+            "checks": {
+                "stdout": {
+                    "empty": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Package dependencies are consistent",
+            "program": "apt-get",
+            "args": ["check"],
+            "checks": {
+                "stdout": {
+                    "pass": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "System clock is synchronized",
+            "program": "timedatectl",
+            "args": ["show", "--property=NTPSynchronized", "--value"],
+            "checks": {
+                "stdout": {
+                    "equals": "yes"
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Root filesystem is mounted read-write",
+            "program": "findmnt",
+            "args": ["--noheadings", "--output", "OPTIONS", "/"],
+            "checks": {
+                "stdout": {
+                    "contains": "rw"
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Kernel and system information",
+            "program": "uname",
+            "args": ["--all"],
+            "checks": {
+                "stdout": {
+                    "pass": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        }
+    ]
 }

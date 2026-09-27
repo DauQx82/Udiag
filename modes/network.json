@@ -1,0 +1,86 @@
+{
+    "name": "network",
+    "description": "Local network configuration and DNS diagnostics",
+    "operations": [
+        {
+            "title": "Network address overview",
+            "program": "ip",
+            "args": ["-brief", "address"],
+            "checks": {
+                "stdout": {
+                    "pass": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Default route is available",
+            "program": "ip",
+            "args": ["route", "show", "default"],
+            "checks": {
+                "stdout": {
+                    "contains": "default"
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "External route lookup",
+            "program": "ip",
+            "args": ["route", "get", "1.1.1.1"],
+            "checks": {
+                "stdout": {
+                    "contains": "1.1.1.1"
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Public DNS resolution",
+            "program": "getent",
+            "args": ["ahosts", "ubuntu.com"],
+            "checks": {
+                "stdout": {
+                    "pass": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Listening TCP sockets",
+            "program": "ss",
+            "args": ["--listening", "--tcp", "--numeric"],
+            "checks": {
+                "stdout": {
+                    "pass": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        }
+    ]
+}

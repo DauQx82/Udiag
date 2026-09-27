@@ -1,0 +1,96 @@
+{
+    "name": "storage",
+    "description": "Filesystem and block-device diagnostics",
+    "operations": [
+        {
+            "title": "Root filesystem is mounted",
+            "program": "mountpoint",
+            "args": ["--quiet", "/"],
+            "checks": {
+                "stdout": {
+                    "empty": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Filesystem table verification",
+            "program": "findmnt",
+            "args": ["--verify", "--verbose"],
+            "checks": {
+                "stdout": {
+                    "pass": true
+                },
+                "stderr": {
+                    "pass": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Filesystem space usage",
+            "program": "df",
+            "args": [
+                "--human-readable",
+                "--output=source,fstype,size,used,avail,pcent,target",
+                "--exclude-type=tmpfs",
+                "--exclude-type=devtmpfs"
+            ],
+            "checks": {
+                "stdout": {
+                    "pass": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Filesystem inode usage",
+            "program": "df",
+            "args": [
+                "--human-readable",
+                "--output=source,itotal,iused,iavail,ipcent,target",
+                "--exclude-type=tmpfs",
+                "--exclude-type=devtmpfs"
+            ],
+            "checks": {
+                "stdout": {
+                    "pass": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        },
+        {
+            "title": "Block-device overview",
+            "program": "lsblk",
+            "args": ["--output", "NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS"],
+            "checks": {
+                "stdout": {
+                    "pass": true
+                },
+                "stderr": {
+                    "empty": true
+                },
+                "returncode": {
+                    "equals": 0
+                }
+            }
+        }
+    ]
+}
